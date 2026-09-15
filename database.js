@@ -164,8 +164,17 @@ async function initDatabase() {
         const [tableCheck] = await sequelize.query("SELECT name FROM sqlite_master WHERE type='table' AND name='Posts';");
         if (tableCheck.length > 0) {
             console.log('Postsテーブルが存在します。NULLのIDを修正します...');
-            // idカラムが存在しない場合に備えて追加（既に存在すれば何もしない）
-            await sequelize.query('ALTER TABLE Posts ADD COLUMN IF NOT EXISTS id TEXT;');
+            // idカラムが存在しない場合に備えて追加
+            const [columnCheck] = await sequelize.query("PRAGMA table_info(Posts);");
+            const idColumnExists = columnCheck.some(col => col.name === 'id');
+
+            if (!idColumnExists) {
+                console.log('Postsテーブルにidカラムが存在しません。追加します...');
+                await sequelize.query('ALTER TABLE Posts ADD COLUMN id TEXT;');
+                console.log('Postsテーブルにidカラムを追加しました。');
+            } else {
+                console.log('Postsテーブルにidカラムは既に存在します。');
+            }
 
             // モデルが完全に同期されていない可能性があるため、生のクエリを使用してNULLのIDを持つ投稿をフェッチ
             const [rowsToFix] = await sequelize.query('SELECT rowid FROM Posts WHERE id IS NULL;');
