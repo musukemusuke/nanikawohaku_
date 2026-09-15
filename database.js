@@ -154,9 +154,15 @@ Reply.belongsTo(Post, { foreignKey: 'postId' });
 
 async function initDatabase() {
   try {
+    // SQLiteの外部キーチェックを一時的に無効にする
+    await sequelize.query('PRAGMA foreign_keys = OFF;');
+
     // モデルの変更をデータベースに同期（alter: trueでカラムの追加に対応）
     await sequelize.sync({ alter: true });
     console.log('データベースモデルがロードされました');
+
+    // 外部キーチェックを再度有効にする
+    await sequelize.query('PRAGMA foreign_keys = ON;');
   } catch (error) {
     console.error('データベースモデルのロード中にエラーが発生しました:', error);
     throw error; // エラーを再スローして、ボットの起動プロセスに伝える
