@@ -66,7 +66,7 @@ async function registerCommands() {
 client.on('interactionCreate', async interaction => {
   // モーダル送信の処理を外部ハンドラーに委譲
   if (interaction.isModalSubmit()) {
-    return handleModalSubmit(interaction);
+    return handleModalSubmit(interaction, client);
   }
 
   // ボタンクリックの処理を外部ハンドラーに委譲

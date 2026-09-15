@@ -1,27 +1,10 @@
 const { Post, Reply } = require('../database');
 
-module.exports = async function handleModalSubmit(interaction) {
-  // 投稿作成モーダルの処理
-  if (interaction.customId.startsWith('post_modal_')) {
-    const isPrivate = interaction.customId.includes('true');
-    const content = interaction.fields.getTextInputValue('post_content');
-    let imageUrl = null;
-    try {
-      imageUrl = interaction.fields.getTextInputValue('post_image');
-    } catch (e) {
-      imageUrl = null;
-    }
-
-    await Post.create({
-      userId: interaction.user.id,
-      guildId: interaction.guild.id,
-      username: interaction.user.username,
-      content,
-      imageUrl,
-      isPrivate
-    });
-
-    return interaction.reply({ content: '投稿が完了しました！', flags: 64 });
+module.exports = async function handleModalSubmit(interaction, client) {
+  // コマンドごとのhandleModalSubmitを呼び出す
+  const command = client.commands.get(interaction.customId.split('_')[0]);
+  if (command && command.handleModalSubmit) {
+    return command.handleModalSubmit(interaction);
   }
 
   // リプライ作成モーダルの処理
