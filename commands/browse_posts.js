@@ -62,54 +62,15 @@ module.exports = {
 
     // 初期のコンポーネントにナビゲーションボタンを追加
     const initialComponents = [...initialPostData.components, navRow];
-    const message = await interaction.reply({
+    const response = await interaction.reply({
       embeds: initialPostData.embeds,
-      components: initialComponents,
-      fetchReply: true,
-      flags: 64
-    });
-
-    // リアクションによるナビゲーションも試行（権限がある場合のみ動作）
-    try {
-      await message.react('◀️');
-      await message.react('▶️');
-
-      const filter = (reaction, user) => {
-        return ['◀️', '▶️'].includes(reaction.emoji.name) && user.id === interaction.user.id;
-      };
-
-      const collector = message.createReactionCollector({ filter });
-
-      collector.on('collect', async (reaction, user) => {
-        if (reaction.emoji.name === '◀️') {
-          currentIndex = (currentIndex - 1 + posts.length) % posts.length;
-        } else if (reaction.emoji.name === '▶️') {
-          currentIndex = (currentIndex + 1) % posts.length;
-        }
-
-        const newPostData = await fetchAndSendPost(currentIndex);
-        const newPostComponents = [...newPostData.components, navRow];
-        await message.edit({
-          embeds: newPostData.embeds,
-          components: newPostComponents
-        });
-
-        // ユーザーのリアクションを削除
-        reaction.users.remove(user.id).catch(() => {});
-      });
-
-      collector.on('end', async collected => {
-        if (message && !message.deleted) {
-          await message.reactions.removeAll().catch(() => {});
-        }
-      });
-    } catch (error) {
-      console.log('リアクションの追加に失敗しました（権限不足の可能性があります）:', error.message);
-    }
+      components: initialComponents
+    }).withResponse();
+    const message = response.message;
 
     // ボタンによるナビゲーションハンドラー（常に動作）
     const buttonFilter = i => ['prev_post', 'next_post'].includes(i.customId) && i.user.id === interaction.user.id;
-    const buttonCollector = message.createMessageComponentCollector({ filter });
+    const buttonCollector = message.createMessageComponentCollector({ filter: buttonFilter });
 
     buttonCollector.on('collect', async i => {
       if (i.customId === 'prev_post') {
