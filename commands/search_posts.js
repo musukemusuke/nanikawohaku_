@@ -1,4 +1,4 @@
-const { ActionRowBuilder, ButtonBuilder, ButtonStyle, SlashCommandBuilder, EmbedBuilder } = require('discord.js');
+const { ActionRowBuilder, ModalBuilder, TextInputBuilder, SlashCommandBuilder, EmbedBuilder } = require('discord.js');
 const { Post, Reply, Like } = require('../database');
 const { Op } = require('sequelize');
 
@@ -165,7 +165,7 @@ module.exports = {
       option.setName('postid')
         .setDescription('検索する投稿のID')
         .setRequired(false)),
-  longDescription: '現在のサーバーの公開投稿を検索できます。\n・キーワードで投稿内容を検索、または投稿IDで直接検索可能\n・検索結果からbrowse_postsと同様にいいねやリプライを行えます。',
+  longDescription: '現在のサーバーの公開投稿を検索できます。\n・キーワードで投稿内容を検索、または投稿IDで直接検索可能\n・検索結果からbrowse_postsと同様に絵文字リアクションでいいねやリプライを行えます。',
   async execute(interaction) {
     const keyword = interaction.options.getString('keyword');
     const postid = interaction.options.getString('postid');
@@ -187,50 +187,87 @@ module.exports = {
     });
 
     if (posts.length === 0) {
-      return interaction.reply({ content: 'まだ公開投稿がありません。', flags: 64 });
+      return interaction.reply({ content: 'まだ公開投稿がありません。', ephemeral: true });
     }
 
-    const embedsAndComponents = [];
     for (const post of posts) {
       const postEmbeds = await createPostDetailEmbed(post, interaction.user, interaction.guild);
 
-      const userLiked = await Like.findOne({ where: { userId: interaction.user.id, postId: post.id } });
-      const likeButtonLabel = userLiked ? '❤️ いいね済み' : '❤️ いいね';
-      const likeButtonStyle = userLiked ? ButtonStyle.Success : ButtonStyle.Primary;
+      const messageOptions = {
+        embeds: postEmbeds,
+        ephemeral: true,
+        fetchReply: true
+      };
 
-      const actionRow1 = new ActionRowBuilder()
-        .addComponents(
-          new ButtonBuilder()
-            .setCustomId(`like_button_${post.id}`)
-            .setLabel(likeButtonLabel)
-            .setStyle(likeButtonStyle)
-        );
+      const sentMessage = await (posts.indexOf(post) === 0 ? interaction.reply(messageOptions) : interaction.followUp(messageOptions));
 
-      const actionRow2 = new ActionRowBuilder()
-        .addComponents(
-          new ButtonBuilder()
-            .setCustomId(`reply_button_${post.id}`)
-            .setLabel('💬 投稿にリプライ')
-            .setStyle(ButtonStyle.Secondary)
-        );
-      embedsAndComponents.push({ embeds: postEmbeds, components: [actionRow1, actionRow2] });
-    }
+      await sentMessage.react('❤️');
+      await sentMessage.react('💬');
 
-    if (embedsAndComponents.length > 0) {
-      await interaction.reply({
-        embeds: embedsAndComponents[0].embeds,
-        components: embedsAndComponents[0].components,
-        flags: 64
+      const filter = (reaction, user) => {
+        return ['❤️', '💬'].includes(reaction.emoji.name) && user.id === interaction.user.id;
+      };
+
+      const collector = sentMessage.createReactionCollector({ filter, time: 60000 }); // 60秒間反応を待つ
+
+      collector.on('collect', async (reaction, user) => {
+        await reaction.users.remove(user.id); // ユーザーのリアクションを削除
+
+        if (reaction.emoji.name === '❤️') {
+          const existingLike = await Like.findOne({ where: { userId: user.id, postId: post.id } });
+
+          if (existingLike) {
+            await existingLike.destroy();
+            await interaction.followUp({ content: 'いいねを取り消しました。', ephemeral: true });
+          } else {
+            await Like.create({ userId: user.id, postId: post.id });
+            await interaction.followUp({ content: 'いいねしました！', ephemeral: true });
+          }
+          // Embedを更新していいね数を反映
+          const updatedPost = await Post.findByPk(post.id, { include: [Reply, Like] });
+          const updatedEmbeds = await createPostDetailEmbed(updatedPost, interaction.user, interaction.guild);
+          await sentMessage.edit({ embeds: updatedEmbeds });
+
+        } else if (reaction.emoji.name === '💬') {
+          const modal = new ModalBuilder()
+            .setCustomId(`reply_modal_${post.id}`)
+            .setTitle('リプライを送信');
+
+          const replyContentInput = new TextInputBuilder()
+            .setCustomId('reply_content')
+            .setLabel('リプライ内容')
+            .setStyle(2) // Paragraph
+            .setRequired(true)
+            .setMaxLength(500);
+
+          const firstActionRow = new ActionRowBuilder().addComponents(replyContentInput);
+          modal.addComponents(firstActionRow);
+
+          await interaction.showModal(modal);
+        }
       });
-      for (let i = 1; i < embedsAndComponents.length; i++) {
-        await interaction.followUp({
-          embeds: embedsAndComponents[i].embeds || [],
-          components: embedsAndComponents[i].components || [],
-          flags: 64
-        });
+
+      collector.on('end', collected => {
+        if (collected.size === 0) {
+          // console.log('リアクションがありませんでした。');
+        }
+        // メッセージからリアクションを削除
+        sentMessage.reactions.removeAll().catch(error => console.error('Failed to clear reactions: ', error));
+      });
+    }
+  },
+  async handleModalSubmit(interaction) {
+    if (interaction.customId.startsWith('reply_modal_')) {
+      await interaction.deferReply({ ephemeral: true });
+      const postId = interaction.customId.split('_')[2];
+      const replyContent = interaction.fields.getTextInputValue('reply_content');
+      try {
+        await Reply.create({ postId, userId: interaction.user.id, username: interaction.user.username, content: replyContent });
+        await interaction.editReply({ content: 'リプライを送信しました！', ephemeral: true });
+      } catch (error) {
+        console.error('リプライの保存中にエラーが発生しました:', error);
+        await interaction.editReply({ content: 'リプライの送信中にエラーが発生しました。', ephemeral: true });
       }
-    } else {
-      await interaction.reply({ content: '該当する投稿が見つかりませんでした。', flags: 64 });
     }
   }
 };

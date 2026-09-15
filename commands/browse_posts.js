@@ -176,58 +176,81 @@ module.exports = {
       const post = posts[index];
       const postEmbeds = await createPostDetailEmbed(post, interaction.user, interaction.guild);
 
-      const userLiked = await Like.findOne({ where: { userId: interaction.user.id, postId: post.id } });
-      const likeButtonLabel = userLiked ? '❤️ いいね済み' : '❤️ いいね';
-      const likeButtonStyle = userLiked ? ButtonStyle.Success : ButtonStyle.Primary;
-
-      const actionRow = new ActionRowBuilder()
-        .addComponents(
-          new ButtonBuilder()
-            .setCustomId(`like_button_${post.id}`)
-            .setLabel(likeButtonLabel)
-            .setStyle(likeButtonStyle),
-          new ButtonBuilder()
-            .setCustomId(`reply_button_${post.id}`)
-            .setLabel('💬 投稿にリプライ')
-            .setStyle(ButtonStyle.Secondary)
-        );
-      
-      return { embeds: postEmbeds, components: [actionRow] };
+      return { embeds: postEmbeds };
     };
 
     const initialPostData = await fetchAndSendPost(currentIndex);
 
     await interaction.reply({
       embeds: initialPostData.embeds,
-      components: initialPostData.components
+      fetchReply: true // メッセージオブジェクトを取得
     });
     const message = await interaction.fetchReply();
 
-    // リアクション（矢印）によるナビゲーション
+    // リアクションによるナビゲーション、いいね、リプライ
     try {
       await message.react('◀️');
       await message.react('▶️');
+      await message.react('❤️'); // いいねリアクションを追加
+      await message.react('💬'); // リプライリアクションを追加
 
       const reactionFilter = (reaction, user) => {
-        return ['◀️', '▶️'].includes(reaction.emoji.name) && user.id === interaction.user.id;
+        // ナビゲーション、いいね、リプライのリアクションと、コマンド実行ユーザーからのもののみを収集
+        return ['◀️', '▶️', '❤️', '💬'].includes(reaction.emoji.name) && user.id === interaction.user.id;
       };
 
-      const reactionCollector = message.createReactionCollector({ filter: reactionFilter });
+      const reactionCollector = message.createReactionCollector({ filter: reactionFilter, time: 180000 }); // 3分間有効
 
       reactionCollector.on('collect', async (reaction, user) => {
+        const currentPost = posts[currentIndex]; // 現在表示されている投稿
+
         if (reaction.emoji.name === '◀️') {
           currentIndex = (currentIndex - 1 + posts.length) % posts.length;
         } else if (reaction.emoji.name === '▶️') {
           currentIndex = (currentIndex + 1) % posts.length;
+        } else if (reaction.emoji.name === '❤️') {
+          // いいね処理
+          const existingLike = await Like.findOne({ where: { userId: user.id, postId: currentPost.id } });
+          if (existingLike) {
+            await existingLike.destroy();
+            await interaction.followUp({ content: 'いいねを取り消しました。', ephemeral: true });
+          } else {
+            await Like.create({ userId: user.id, postId: currentPost.id });
+            await interaction.followUp({ content: 'いいねしました！', ephemeral: true });
+          }
+          // いいね数の更新のため、Embedを再生成
+          const updatedPost = await Post.findByPk(currentPost.id, { include: [Reply, Like] });
+          const newPostData = await fetchAndSendPost(currentIndex);
+          await message.edit({ embeds: newPostData.embeds });
+        } else if (reaction.emoji.name === '💬') {
+          // リプライ処理 (モーダルを表示)
+          const modal = new ModalBuilder()
+            .setCustomId(`reply_modal_${currentPost.id}`)
+            .setTitle('リプライを送信');
+
+          const replyInput = new TextInputBuilder()
+            .setCustomId('reply_content')
+            .setLabel('リプライ内容')
+            .setStyle(TextInputStyle.Paragraph)
+            .setRequired(true)
+            .setMinLength(1)
+            .setMaxLength(1000);
+
+          const firstActionRow = new ActionRowBuilder().addComponents(replyInput);
+          modal.addComponents(firstActionRow);
+
+          await interaction.showModal(modal);
         }
 
-        const newPostData = await fetchAndSendPost(currentIndex);
-        await message.edit({
-          embeds: newPostData.embeds,
-          components: newPostData.components
-        });
-
-        reaction.users.remove(user.id).catch(() => {});
+        // ナビゲーションの場合のみメッセージを更新
+        if (['◀️', '▶️'].includes(reaction.emoji.name)) {
+          const newPostData = await fetchAndSendPost(currentIndex);
+          await message.edit({
+            embeds: newPostData.embeds,
+            components: [] // ボタンは常に空
+          });
+        }
+        reaction.users.remove(user.id).catch(() => {}); // ユーザーのリアクションを削除
       });
 
       reactionCollector.on('end', async () => {
@@ -239,8 +262,29 @@ module.exports = {
       console.log('リアクションの追加に失敗しました:', error.message);
       await interaction.followUp({
         content: 'リアクションを追加できませんでした。ボットに「リアクションを追加」の権限があるか確認してください。',
-        flags: 64
+        ephemeral: true
       });
+    }
+  },
+
+  async handleModalSubmit(interaction) {
+    if (interaction.customId.startsWith('reply_modal_')) {
+      await interaction.deferReply({ ephemeral: true });
+      const postId = interaction.customId.split('_')[2];
+      const replyContent = interaction.fields.getTextInputValue('reply_content');
+
+      try {
+        await Reply.create({
+          postId: postId,
+          userId: interaction.user.id,
+          username: interaction.user.username,
+          content: replyContent,
+        });
+        await interaction.editReply({ content: 'リプライを送信しました！' });
+      } catch (error) {
+        console.error('リプライの保存中にエラーが発生しました:', error);
+        await interaction.editReply({ content: 'リプライの送信中にエラーが発生しました。' });
+      }
     }
   }
 };

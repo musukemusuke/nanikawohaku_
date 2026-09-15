@@ -84,43 +84,6 @@ module.exports = {
       
       await interaction.showModal(modal);
     }
-    
-    if (interaction.customId.startsWith('confirm_')) {
-      const parts = interaction.customId.split('_');
-      const isPrivateStr = parts[1];
-      const content = decodeURIComponent(parts[2]);
-      const imageUrl = decodeURIComponent(parts[3]);
-      const allowedUsersStr = parts[4] || '';
-      
-      const isPrivate = isPrivateStr === 'true';
-      const allowedUserIds = allowedUsersStr ? allowedUsersStr.split(',').map(id => id.trim()) : [];
-      
-      if (interaction.customId.startsWith('confirm_yes_')) {
-        const newPost = await Post.create({
-          userId: interaction.user.id,
-          username: interaction.user.username,
-          content: content,
-          imageUrl: imageUrl || null,
-          isPrivate: isPrivate,
-          likes: 0,
-          allowedUserIds: allowedUserIds
-        });
-        
-        await interaction.update({ 
-          content: `投稿が完了しました！投稿ID: ${newPost.id}`, 
-          embeds: [], 
-          components: [],
-          flags: [64]
-        });
-      } else {
-        await interaction.update({ 
-          content: '投稿をキャンセルしました。もう一度/postコマンドから投稿を開始してください。', 
-          embeds: [], 
-          components: [],
-          flags: [64]
-        });
-      }
-    }
   },
   
   async handleModalSubmit(interaction) {
@@ -156,11 +119,67 @@ module.exports = {
         );
       
       await interaction.deferReply({ flags: [64] });
-       await interaction.editReply({
-         content: '投稿プレビュー',
-         embeds: [previewEmbed, confirmationEmbed],
-         components: [confirmRow]
-       });
+      const message = await interaction.editReply({ // メッセージオブジェクトを取得するためにeditReplyの戻り値を変数に格納
+        content: '投稿プレビュー',
+        embeds: [previewEmbed, confirmationEmbed],
+        // components: [] // リアクションベースの確認のため、ボタンは不要
+      });
+
+      // メッセージにリアクションを追加
+      await message.react('✅');
+      await message.react('❌');
+
+      // リアクションコレクターを作成
+      const filter = (reaction, user) => {
+        // 元のコマンドを実行したユーザーからの✅または❌のリアクションのみを収集
+        return ['✅', '❌'].includes(reaction.emoji.name) && user.id === interaction.user.id;
+      };
+
+      // 60秒間リアクションを待ち、1つだけ収集
+      const collector = message.createReactionCollector({ filter, time: 60000, max: 1 });
+
+      collector.on('collect', async (reaction, user) => {
+        if (reaction.emoji.name === '✅') {
+          // ユーザーが確認した場合、投稿を作成
+          const newPost = await Post.create({
+            userId: interaction.user.id,
+            username: interaction.user.username,
+            content: content,
+            imageUrl: imageUrl || null,
+            isPrivate: isPrivate,
+            likes: 0,
+            allowedUserIds: allowedUsers ? allowedUsers.split(',').map(id => id.trim()) : [] // allowedUsers文字列をパース
+          });
+
+          await interaction.editReply({
+            content: `✅ 投稿が完了しました！投稿ID: ${newPost.id}`,
+            embeds: [],
+            components: [],
+          });
+        } else if (reaction.emoji.name === '❌') {
+          // ユーザーがキャンセルした場合
+          await interaction.editReply({
+            content: '投稿をキャンセルしました。もう一度/postコマンドから投稿を開始してください。',
+            embeds: [],
+            components: [],
+          });
+        }
+        // 有効なリアクションが処理されたらコレクターを停止
+        collector.stop();
+      });
+
+      collector.on('end', collected => {
+        // タイムリミット内にリアクションがなかった場合
+        if (collected.size === 0) {
+          interaction.editReply({
+            content: '時間内にリアクションがなかったため、投稿をキャンセルしました。',
+            embeds: [],
+            components: [],
+          }).catch(console.error); // interactionが既に返信/編集されている場合の潜在的なエラーをキャッチ
+        }
+        // コレクター終了後、メッセージからすべてのリアクションを削除
+        message.reactions.removeAll().catch(error => console.error('Failed to clear reactions: ', error));
+      });
     }
   }
 };

@@ -49,40 +49,46 @@ module.exports = {
       return interaction.reply({ content: 'まだ投稿していません。', flags: 64 });
     }
 
-    const embedsAndComponents = [];
-    for (const post of userPosts) {
-      const likeUsers = await Promise.all(post.Likes.map(async like => {
-        const user = await interaction.client.users.fetch(like.userId);
-        return user.username;
-      }));
-      const postEmbeds = createMyPostDetailEmbed(post, likeUsers, []);
+    // ページネーションを考慮し、最初の投稿のみを処理する例
+    const post = userPosts[0]; // 最初の投稿を取得
 
-      // 投稿ごとに固有のIDをボタンに埋め込む
-      const baseActionRow = new ActionRowBuilder()
-        .addComponents(
-          new ButtonBuilder()
-            .setCustomId(`delete_post_button_${post.id}`)
-            .setLabel('投稿を削除')
-            .setStyle(ButtonStyle.Danger)
-        );
-      embedsAndComponents.push({ embeds: postEmbeds, components: [baseActionRow] });
-    }
+    const likeUsers = await Promise.all(post.Likes.map(async like => {
+      const user = await interaction.client.users.fetch(like.userId);
+      return user.username;
+    }));
+    const postEmbeds = createMyPostDetailEmbed(post, likeUsers, []);
 
-    if (embedsAndComponents.length > 0) {
-      await interaction.reply({
-        embeds: embedsAndComponents[0].embeds,
-        components: embedsAndComponents[0].components,
-        flags: 64
-      });
-      for (let i = 1; i < embedsAndComponents.length; i++) {
-        await interaction.followUp({
-          embeds: embedsAndComponents[i].embeds || [],
-          components: embedsAndComponents[i].components || [],
-          flags: 64
+    await interaction.deferReply({ flags: 64 }); // deferReplyを追加
+
+    const message = await interaction.editReply({
+      embeds: postEmbeds,
+      flags: 64,
+      fetchReply: true
+    });
+    await message.react('🗑️'); // ゴミ箱の絵文字リアクションを追加
+
+    const filter = (reaction, user) => {
+      return reaction.emoji.name === '🗑️' && user.id === interaction.user.id;
+    };
+
+    const collector = message.createReactionCollector({ filter, time: 60000, max: 1 });
+
+    collector.on('collect', async (reaction, user) => {
+      if (reaction.emoji.name === '🗑️') {
+        await Post.destroy({ where: { id: post.id } });
+        await interaction.editReply({
+          content: `投稿ID: ${post.id} を削除しました。`,
+          embeds: [],
+          components: [],
         });
       }
-    } else {
-      await interaction.reply({ content: '表示可能な投稿がありません。', flags: 64 });
-    }
+      collector.stop();
+    });
+
+    collector.on('end', collected => {
+      if (collected.size === 0) {
+        message.reactions.removeAll().catch(error => console.error('Failed to clear reactions: ', error));
+      }
+    });
   }
 };
