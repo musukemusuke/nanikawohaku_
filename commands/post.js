@@ -122,6 +122,7 @@ module.exports = {
       const message = await interaction.editReply({ // メッセージオブジェクトを取得するためにeditReplyの戻り値を変数に格納
         content: '投稿プレビュー',
         embeds: [previewEmbed, confirmationEmbed],
+        fetchReply: true
         // components: [] // リアクションベースの確認のため、ボタンは不要
       });
 

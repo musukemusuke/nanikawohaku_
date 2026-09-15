@@ -48,7 +48,7 @@ module.exports = {
     });
 
     if (allReplies.length === 0) {
-      return interaction.reply({ content: 'まだリプライした投稿はありません。', ephemeral: true });
+      return interaction.reply({ content: 'まだリプライした投稿はありません。', flags: 64 });
     }
 
     for (const reply of allReplies) {
@@ -59,7 +59,7 @@ module.exports = {
 
       const messageOptions = {
         embeds: [replyEmbed],
-        ephemeral: true,
+        flags: 64,
         fetchReply: true
       };
 
@@ -78,7 +78,7 @@ module.exports = {
 
         if (reaction.emoji.name === '🗑️') {
           await Reply.destroy({ where: { id: reply.id } });
-          await interaction.followUp({ content: '🗑️ リプライを削除しました。', ephemeral: true });
+          await interaction.followUp({ content: '🗑️ リプライを削除しました。', flags: 64 });
           await sentMessage.delete(); // リプライメッセージ自体も削除
         }
       });

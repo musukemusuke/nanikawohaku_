@@ -187,7 +187,7 @@ module.exports = {
     });
 
     if (posts.length === 0) {
-      return interaction.reply({ content: 'まだ公開投稿がありません。', ephemeral: true });
+      return interaction.reply({ content: 'まだ公開投稿がありません。', flags: 64 });
     }
 
     for (const post of posts) {
@@ -195,7 +195,7 @@ module.exports = {
 
       const messageOptions = {
         embeds: postEmbeds,
-        ephemeral: true,
+        flags: 64,
         fetchReply: true
       };
 
@@ -218,10 +218,10 @@ module.exports = {
 
           if (existingLike) {
             await existingLike.destroy();
-            await interaction.followUp({ content: 'いいねを取り消しました。', ephemeral: true });
+            await interaction.followUp({ content: 'いいねを取り消しました。', flags: 64 });
           } else {
             await Like.create({ userId: user.id, postId: post.id });
-            await interaction.followUp({ content: 'いいねしました！', ephemeral: true });
+            await interaction.followUp({ content: 'いいねしました！', flags: 64 });
           }
           // Embedを更新していいね数を反映
           const updatedPost = await Post.findByPk(post.id, { include: [Reply, Like] });
@@ -258,15 +258,15 @@ module.exports = {
   },
   async handleModalSubmit(interaction) {
     if (interaction.customId.startsWith('reply_modal_')) {
-      await interaction.deferReply({ ephemeral: true });
+      await interaction.deferReply({ flags: 64 });
       const postId = interaction.customId.split('_')[2];
       const replyContent = interaction.fields.getTextInputValue('reply_content');
       try {
         await Reply.create({ postId, userId: interaction.user.id, username: interaction.user.username, content: replyContent });
-        await interaction.editReply({ content: 'リプライを送信しました！', ephemeral: true });
+        await interaction.editReply({ content: 'リプライを送信しました！', flags: 64 });
       } catch (error) {
         console.error('リプライの保存中にエラーが発生しました:', error);
-        await interaction.editReply({ content: 'リプライの送信中にエラーが発生しました。', ephemeral: true });
+        await interaction.editReply({ content: 'リプライの送信中にエラーが発生しました。', flags: 64 });
       }
     }
   }

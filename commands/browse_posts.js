@@ -213,10 +213,10 @@ module.exports = {
           const existingLike = await Like.findOne({ where: { userId: user.id, postId: currentPost.id } });
           if (existingLike) {
             await existingLike.destroy();
-            await interaction.followUp({ content: 'いいねを取り消しました。', ephemeral: true });
+            await interaction.followUp({ content: 'いいねを取り消しました。', flags: 64 });
           } else {
             await Like.create({ userId: user.id, postId: currentPost.id });
-            await interaction.followUp({ content: 'いいねしました！', ephemeral: true });
+            await interaction.followUp({ content: 'いいねしました！', flags: 64 });
           }
           // いいね数の更新のため、Embedを再生成
           const updatedPost = await Post.findByPk(currentPost.id, { include: [Reply, Like] });
@@ -262,14 +262,14 @@ module.exports = {
       console.log('リアクションの追加に失敗しました:', error.message);
       await interaction.followUp({
         content: 'リアクションを追加できませんでした。ボットに「リアクションを追加」の権限があるか確認してください。',
-        ephemeral: true
+        flags: 64
       });
     }
   },
 
   async handleModalSubmit(interaction) {
     if (interaction.customId.startsWith('reply_modal_')) {
-      await interaction.deferReply({ ephemeral: true });
+      await interaction.deferReply({ flags: 64 });
       const postId = interaction.customId.split('_')[2];
       const replyContent = interaction.fields.getTextInputValue('reply_content');
 
