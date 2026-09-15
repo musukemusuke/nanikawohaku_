@@ -137,12 +137,12 @@ module.exports = {
             .setStyle(ButtonStyle.Danger)
         );
       
-      await interaction.reply({
-        content: '投稿プレビュー',
-        embeds: [previewEmbed, confirmationEmbed],
-        components: [confirmRow],
-        flags: [64]
-      });
+      await interaction.deferReply({ flags: [64] });
+       await interaction.editReply({
+         content: '投稿プレビュー',
+         embeds: [previewEmbed, confirmationEmbed],
+         components: [confirmRow]
+       });
     }
   }
 };
