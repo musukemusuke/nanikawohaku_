@@ -22,7 +22,7 @@ module.exports = {
     .setDescription('新しい投稿を作成します'),
   longDescription: '新規投稿を作成します。\n・公開（サーバーの全員が閲覧可能）または非公開を選択可能\n・非公開の場合、「自分だけ」または指定したユーザーIDのみ閲覧可能に設定できる\n・非公開投稿は/mypostsでのみ確認可能、他ユーザーのbrowse_postsには表示されません\n・最大2000文字のテキストに加え、画像/動画URLを1つ（任意）で投稿可能\n・YouTubeなどの動画URLはDiscordの自動埋め込みで表示されます\n・公開投稿は他ユーザーからのリプライやいいねを受け取れます。',
   async execute(interaction) {
-    await interaction.deferReply(); // deferReplyを追加
+    await interaction.deferReply({ flags: 0 }); // deferReplyを追加
 
     const row = new ActionRowBuilder()
       .addComponents(
@@ -38,8 +38,7 @@ module.exports = {
     
     await interaction.editReply({ 
       content: '投稿の公開設定を選択してください', 
-      components: [row], 
-      flags: [64]
+      components: [row]
     });
   },
   
@@ -118,10 +117,11 @@ module.exports = {
             .setStyle(ButtonStyle.Danger)
         );
       
-      await interaction.deferReply({ ephemeral: false });
-      const message = await interaction.editReply({ // メッセージオブジェクトを取得するためにeditReplyの戻り値を変数に格納
+
+      const message = await interaction.followUp({ // メッセージオブジェクトを取得するためにfollowUpの戻り値を変数に格納
         content: '投稿プレビュー',
         embeds: [previewEmbed, confirmationEmbed],
+        flags: 0, // 明示的に非一時的メッセージとして設定
         fetchReply: true
         // components: [] // リアクションベースの確認のため、ボタンは不要
       });
