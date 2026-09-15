@@ -117,8 +117,8 @@ module.exports = {
             .setStyle(ButtonStyle.Danger)
         );
       
-
-      const message = await interaction.followUp({ // メッセージオブジェクトを取得するためにfollowUpの戻り値を変数に格納
+      await interaction.deferReply({ flags: 0 }); // モーダル送信に対するdeferReply
+      const message = await interaction.editReply({ // メッセージオブジェクトを取得するためにeditReplyの戻り値を変数に格納
         content: '投稿プレビュー',
         embeds: [previewEmbed, confirmationEmbed],
         flags: 0, // 明示的に非一時的メッセージとして設定
