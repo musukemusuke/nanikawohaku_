@@ -10,7 +10,7 @@ function createPostPreviewEmbed(username, content, imageUrl) {
     .setTimestamp(); // 引数なし
 
   if (imageUrl) {
-    embed.addFields({ name: '添付メディア', value: imageUrl, inline: false });
+    embed.setImage(imageUrl); // 画像を直接Embedに表示
   }
 
   return embed;
@@ -22,6 +22,8 @@ module.exports = {
     .setDescription('新しい投稿を作成します'),
   longDescription: '新規投稿を作成します。\n・公開（サーバーの全員が閲覧可能）または非公開を選択可能\n・非公開の場合、「自分だけ」または指定したユーザーIDのみ閲覧可能に設定できる\n・非公開投稿は/mypostsでのみ確認可能、他ユーザーのbrowse_postsには表示されません\n・最大2000文字のテキストに加え、画像/動画URLを1つ（任意）で投稿可能\n・YouTubeなどの動画URLはDiscordの自動埋め込みで表示されます\n・公開投稿は他ユーザーからのリプライやいいねを受け取れます。',
   async execute(interaction) {
+    await interaction.deferReply({ ephemeral: true }); // deferReplyを追加
+
     const row = new ActionRowBuilder()
       .addComponents(
         new ButtonBuilder()
@@ -34,7 +36,7 @@ module.exports = {
           .setStyle(ButtonStyle.Danger)
       );
     
-    await interaction.reply({ 
+    await interaction.editReply({ 
       content: '投稿の公開設定を選択してください', 
       components: [row], 
       flags: [64]
@@ -105,7 +107,7 @@ module.exports = {
         });
         
         await interaction.update({ 
-          content: `✅ 投稿が完了しました！投稿ID: ${newPost.id}`, 
+          content: `投稿が完了しました！投稿ID: ${newPost.id}`, 
           embeds: [], 
           components: [],
           flags: [64]
@@ -137,16 +139,18 @@ module.exports = {
       
       const confirmationEmbed = new EmbedBuilder()
         .setColor('#FFA500') // オレンジ色など、注意を促す色
-        .setDescription('この内容で投稿しますか？\n「はい」または「いいえ」を選択してください。');
+        .setDescription('この内容で投稿しますか？\n✅ または ❌ を選択してください。');
       
       const confirmRow = new ActionRowBuilder()
         .addComponents(
           new ButtonBuilder()
             .setCustomId(`confirm_yes_${isPrivate}_${encodeURIComponent(content)}_${encodeURIComponent(imageUrl || '')}_${encodeURIComponent(allowedUsers)}`)
+            .setEmoji('✅') // OKの絵文字
             .setLabel('はい')
             .setStyle(ButtonStyle.Success),
           new ButtonBuilder()
             .setCustomId(`confirm_no_${isPrivate}`)
+            .setEmoji('❌') // NOの絵文字
             .setLabel('いいえ')
             .setStyle(ButtonStyle.Danger)
         );
