@@ -1,4 +1,4 @@
-const { ActionRowBuilder, ButtonBuilder, ButtonStyle, ModalBuilder, TextInputBuilder, TextInputStyle, SlashCommandBuilder } = require('discord.js');
+const { ActionRowBuilder, ButtonBuilder, ButtonStyle, ModalBuilder, TextInputBuilder, TextInputStyle, SlashCommandBuilder, EmbedBuilder } = require('discord.js');
 const { Post, Like, Reply } = require('../database');
 const { createPostPreviewEmbed } = require('../utils/embeds');
 
