@@ -167,7 +167,7 @@ module.exports = {
     });
 
     if (posts.length === 0) {
-      return interaction.reply({ content: 'まだ公開投稿がありません。', flags: 64 });
+      return interaction.reply({ content: 'まだ公開投稿がありません。', flags: 0 });
     }
 
     let currentIndex = 0;
@@ -193,10 +193,11 @@ module.exports = {
       await message.react('▶️');
       await message.react('❤️'); // いいねリアクションを追加
       await message.react('💬'); // リプライリアクションを追加
+      await message.react('❌'); // 閉じるための絵文字リアクションを追加
 
       const reactionFilter = (reaction, user) => {
-        // ナビゲーション、いいね、リプライのリアクションと、コマンド実行ユーザーからのもののみを収集
-        return ['◀️', '▶️', '❤️', '💬'].includes(reaction.emoji.name) && user.id === interaction.user.id;
+        // ナビゲーション、いいね、リプライ、閉じるのリアクションと、コマンド実行ユーザーからのもののみを収集
+        return ['◀️', '▶️', '❤️', '💬', '❌'].includes(reaction.emoji.name) && user.id === interaction.user.id;
       };
 
       const reactionCollector = message.createReactionCollector({ filter: reactionFilter, time: 180000 }); // 3分間有効
@@ -240,6 +241,8 @@ module.exports = {
           modal.addComponents(firstActionRow);
 
           await interaction.showModal(modal);
+        } else if (reaction.emoji.name === '❌') {
+          await message.delete(); // メッセージを削除
         }
 
         // ナビゲーションの場合のみメッセージを更新
@@ -252,8 +255,6 @@ module.exports = {
         }
         reaction.users.remove(user.id).catch(() => {}); // ユーザーのリアクションを削除
       });
-
-      reactionCollector.on('end', async () => {
         if (message && !message.deleted) {
           await message.reactions.removeAll().catch(() => {});
         }
@@ -261,15 +262,14 @@ module.exports = {
     } catch (error) {
       console.log('リアクションの追加に失敗しました:', error.message);
       await interaction.followUp({
-        content: 'リアクションを追加できませんでした。ボットに「リアクションを追加」の権限があるか確認してください。',
-        flags: 64
+        content: 'リアクションを追加できませんでした。ボットに「リアクションを追加」の権限があるか確認してください。'
       });
     }
   },
 
   async handleModalSubmit(interaction) {
     if (interaction.customId.startsWith('reply_modal_')) {
-      await interaction.deferReply({ flags: 64 });
+      await interaction.deferReply();
       const postId = interaction.customId.split('_')[2];
       const replyContent = interaction.fields.getTextInputValue('reply_content');
 

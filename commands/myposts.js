@@ -46,7 +46,7 @@ module.exports = {
     });
 
     if (userPosts.length === 0) {
-      return interaction.reply({ content: 'まだ投稿していません。', flags: 64 });
+      return interaction.reply({ content: 'まだ投稿していません。' });
     }
 
     // ページネーションを考慮し、最初の投稿のみを処理する例
@@ -58,17 +58,17 @@ module.exports = {
     }));
     const postEmbeds = createMyPostDetailEmbed(post, likeUsers, []);
 
-    await interaction.deferReply({ flags: 64 }); // deferReplyを追加
+    await interaction.deferReply(); // deferReplyを追加
 
     const message = await interaction.editReply({
       embeds: postEmbeds,
-      flags: 64,
       fetchReply: true
     });
     await message.react('🗑️'); // ゴミ箱の絵文字リアクションを追加
+    await message.react('❌'); // 閉じるための絵文字リアクションを追加
 
     const filter = (reaction, user) => {
-      return reaction.emoji.name === '🗑️' && user.id === interaction.user.id;
+      return (reaction.emoji.name === '🗑️' || reaction.emoji.name === '❌') && user.id === interaction.user.id;
     };
 
     const collector = message.createReactionCollector({ filter, time: 60000, max: 1 });
@@ -81,6 +81,8 @@ module.exports = {
           embeds: [],
           components: [],
         });
+      } else if (reaction.emoji.name === '❌') {
+        await message.delete(); // メッセージを削除
       }
       collector.stop();
     });

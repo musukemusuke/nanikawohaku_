@@ -187,7 +187,7 @@ module.exports = {
     });
 
     if (posts.length === 0) {
-      return interaction.reply({ content: 'まだ公開投稿がありません。', flags: 64 });
+      return interaction.reply({ content: 'まだ公開投稿がありません。' });
     }
 
     for (const post of posts) {
@@ -195,7 +195,6 @@ module.exports = {
 
       const messageOptions = {
         embeds: postEmbeds,
-        flags: 64,
         fetchReply: true
       };
 
@@ -203,9 +202,10 @@ module.exports = {
 
       await sentMessage.react('❤️');
       await sentMessage.react('💬');
+      await sentMessage.react('❌'); // 閉じるための絵文字リアクションを追加
 
       const filter = (reaction, user) => {
-        return ['❤️', '💬'].includes(reaction.emoji.name) && user.id === interaction.user.id;
+        return ['❤️', '💬', '❌'].includes(reaction.emoji.name) && user.id === interaction.user.id;
       };
 
       const collector = sentMessage.createReactionCollector({ filter, time: 60000 }); // 60秒間反応を待つ
@@ -218,10 +218,10 @@ module.exports = {
 
           if (existingLike) {
             await existingLike.destroy();
-            await interaction.followUp({ content: 'いいねを取り消しました。', flags: 64 });
+            await interaction.followUp({ content: 'いいねを取り消しました。' });
           } else {
             await Like.create({ userId: user.id, postId: post.id });
-            await interaction.followUp({ content: 'いいねしました！', flags: 64 });
+            await interaction.followUp({ content: 'いいねしました！' });
           }
           // Embedを更新していいね数を反映
           const updatedPost = await Post.findByPk(post.id, { include: [Reply, Like] });
@@ -244,6 +244,8 @@ module.exports = {
           modal.addComponents(firstActionRow);
 
           await interaction.showModal(modal);
+        } else if (reaction.emoji.name === '❌') {
+          await sentMessage.delete(); // メッセージを削除
         }
       });
 
@@ -263,10 +265,10 @@ module.exports = {
       const replyContent = interaction.fields.getTextInputValue('reply_content');
       try {
         await Reply.create({ postId, userId: interaction.user.id, username: interaction.user.username, content: replyContent });
-        await interaction.editReply({ content: 'リプライを送信しました！', flags: 64 });
+        await interaction.editReply({ content: 'リプライを送信しました！' });
       } catch (error) {
         console.error('リプライの保存中にエラーが発生しました:', error);
-        await interaction.editReply({ content: 'リプライの送信中にエラーが発生しました。', flags: 64 });
+        await interaction.editReply({ content: 'リプライの送信中にエラーが発生しました。' });
       }
     }
   }

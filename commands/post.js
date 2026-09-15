@@ -22,7 +22,7 @@ module.exports = {
     .setDescription('新しい投稿を作成します'),
   longDescription: '新規投稿を作成します。\n・公開（サーバーの全員が閲覧可能）または非公開を選択可能\n・非公開の場合、「自分だけ」または指定したユーザーIDのみ閲覧可能に設定できる\n・非公開投稿は/mypostsでのみ確認可能、他ユーザーのbrowse_postsには表示されません\n・最大2000文字のテキストに加え、画像/動画URLを1つ（任意）で投稿可能\n・YouTubeなどの動画URLはDiscordの自動埋め込みで表示されます\n・公開投稿は他ユーザーからのリプライやいいねを受け取れます。',
   async execute(interaction) {
-    await interaction.deferReply({ flags: 0 }); // deferReplyを追加
+    await interaction.deferReply({ flags: 64 }); // deferReplyを追加
 
     const row = new ActionRowBuilder()
       .addComponents(
@@ -38,7 +38,8 @@ module.exports = {
     
     await interaction.editReply({ 
       content: '投稿の公開設定を選択してください', 
-      components: [row]
+      components: [row],
+      flags: 64
     });
   },
   
@@ -82,6 +83,43 @@ module.exports = {
       }
       
       await interaction.showModal(modal);
+    } else if (interaction.customId.startsWith('confirm_')) {
+      await interaction.deferUpdate(); // ボタンインタラクションを遅延応答
+
+      const parts = interaction.customId.split('_');
+      const action = parts[1]; // 'yes' or 'no'
+      const isPrivate = parts[2] === 'true';
+      const content = decodeURIComponent(parts[3]);
+      const imageUrl = decodeURIComponent(parts[4]);
+      const allowedUsers = decodeURIComponent(parts[5]);
+
+      if (action === 'yes') {
+        // ユーザーが確認した場合、投稿を作成
+        const newPost = await Post.create({
+          userId: interaction.user.id,
+          username: interaction.user.username,
+          content: content,
+          imageUrl: imageUrl || null,
+          isPrivate: isPrivate,
+          likes: 0,
+          allowedUserIds: allowedUsers ? allowedUsers.split(',').map(id => id.trim()) : [] // allowedUsers文字列をパース
+        });
+
+        await interaction.editReply({
+          content: `投稿が完了しました！投稿ID: ${newPost.id}`,
+          embeds: [],
+          components: [],
+          flags: 64
+        });
+      } else if (action === 'no') {
+        // ユーザーがキャンセルした場合
+        await interaction.editReply({
+          content: '投稿をキャンセルしました。もう一度/postコマンドから投稿を開始してください。',
+          embeds: [],
+          components: [],
+          flags: 64
+        });
+      }
     }
   },
   
@@ -101,88 +139,27 @@ module.exports = {
       
       const confirmationEmbed = new EmbedBuilder()
         .setColor('#FFA500') // オレンジ色など、注意を促す色
-        .setDescription('この内容で投稿しますか？\n✅ または ❌ を選択してください。');
+        .setDescription('この内容で投稿しますか？\n「はい」または「いいえ」を選択してください。'); // 説明文を修正
       
       const confirmRow = new ActionRowBuilder()
         .addComponents(
           new ButtonBuilder()
             .setCustomId(`confirm_yes_${isPrivate}_${encodeURIComponent(content)}_${encodeURIComponent(imageUrl || '')}_${encodeURIComponent(allowedUsers)}`)
-            .setEmoji('✅') // OKの絵文字
-            .setLabel('はい')
+            .setLabel('はい') // 絵文字を削除
             .setStyle(ButtonStyle.Success),
           new ButtonBuilder()
             .setCustomId(`confirm_no_${isPrivate}`)
-            .setEmoji('❌') // NOの絵文字
-            .setLabel('いいえ')
+            .setLabel('いいえ') // 絵文字を削除
             .setStyle(ButtonStyle.Danger)
         );
       
-      await interaction.deferReply({ flags: 0 }); // モーダル送信に対するdeferReply
-      const message = await interaction.editReply({ // メッセージオブジェクトを取得するためにeditReplyの戻り値を変数に格納
+      await interaction.deferReply({ flags: 64 }); // モーダル送信に対するdeferReply
+      await interaction.editReply({ // メッセージオブジェクトを取得するためにeditReplyの戻り値を変数に格納
         content: '投稿プレビュー',
         embeds: [previewEmbed, confirmationEmbed],
-        flags: 0, // 明示的に非一時的メッセージとして設定
+        components: [confirmRow], // ボタンを再導入
+        flags: 64, // 明示的に一時的メッセージとして設定
         fetchReply: true
-        // components: [] // リアクションベースの確認のため、ボタンは不要
-      });
-
-      console.log('Message object after editReply:', message); // 追加するログ
-      console.log('Message ID:', message ? message.id : 'No message ID'); // 追加するログ
-
-      // メッセージにリアクションを追加
-      await message.react('✅');
-      await message.react('❌');
-
-      // リアクションコレクターを作成
-      const filter = (reaction, user) => {
-        // 元のコマンドを実行したユーザーからの✅または❌のリアクションのみを収集
-        return ['✅', '❌'].includes(reaction.emoji.name) && user.id === interaction.user.id;
-      };
-
-      // 60秒間リアクションを待ち、1つだけ収集
-      const collector = message.createReactionCollector({ filter, time: 60000, max: 1 });
-
-      collector.on('collect', async (reaction, user) => {
-        if (reaction.emoji.name === '✅') {
-          // ユーザーが確認した場合、投稿を作成
-          const newPost = await Post.create({
-            userId: interaction.user.id,
-            username: interaction.user.username,
-            content: content,
-            imageUrl: imageUrl || null,
-            isPrivate: isPrivate,
-            likes: 0,
-            allowedUserIds: allowedUsers ? allowedUsers.split(',').map(id => id.trim()) : [] // allowedUsers文字列をパース
-          });
-
-          await interaction.editReply({
-            content: `✅ 投稿が完了しました！投稿ID: ${newPost.id}`,
-            embeds: [],
-            components: [],
-          });
-        } else if (reaction.emoji.name === '❌') {
-          // ユーザーがキャンセルした場合
-          await interaction.editReply({
-            content: '投稿をキャンセルしました。もう一度/postコマンドから投稿を開始してください。',
-            embeds: [],
-            components: [],
-          });
-        }
-        // 有効なリアクションが処理されたらコレクターを停止
-        collector.stop();
-      });
-
-      collector.on('end', collected => {
-        // タイムリミット内にリアクションがなかった場合
-        if (collected.size === 0) {
-          interaction.editReply({
-            content: '時間内にリアクションがなかったため、投稿をキャンセルしました。',
-            embeds: [],
-            components: [],
-          }).catch(console.error); // interactionが既に返信/編集されている場合の潜在的なエラーをキャッチ
-        }
-        // コレクター終了後、メッセージからすべてのリアクションを削除
-        message.reactions.removeAll().catch(error => console.error('Failed to clear reactions: ', error));
       });
     }
   }

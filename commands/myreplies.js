@@ -48,7 +48,7 @@ module.exports = {
     });
 
     if (allReplies.length === 0) {
-      return interaction.reply({ content: 'まだリプライした投稿はありません。', flags: 64 });
+      return interaction.reply({ content: 'まだリプライした投稿はありません。' });
     }
 
     for (const reply of allReplies) {
@@ -59,16 +59,16 @@ module.exports = {
 
       const messageOptions = {
         embeds: [replyEmbed],
-        flags: 64,
         fetchReply: true
       };
 
       const sentMessage = await (allReplies.indexOf(reply) === 0 ? interaction.reply(messageOptions) : interaction.followUp(messageOptions));
 
       await sentMessage.react('🗑️');
+      await sentMessage.react('❌'); // 閉じるための絵文字リアクションを追加
 
       const filter = (reaction, user) => {
-        return reaction.emoji.name === '🗑️' && user.id === interaction.user.id;
+        return (reaction.emoji.name === '🗑️' || reaction.emoji.name === '❌') && user.id === interaction.user.id;
       };
 
       const collector = sentMessage.createReactionCollector({ filter, time: 60000 }); // 60秒間反応を待つ
@@ -78,8 +78,10 @@ module.exports = {
 
         if (reaction.emoji.name === '🗑️') {
           await Reply.destroy({ where: { id: reply.id } });
-          await interaction.followUp({ content: '🗑️ リプライを削除しました。', flags: 64 });
+          await interaction.followUp({ content: 'リプライを削除しました。' });
           await sentMessage.delete(); // リプライメッセージ自体も削除
+        } else if (reaction.emoji.name === '❌') {
+          await sentMessage.delete(); // メッセージを削除
         }
       });
 
