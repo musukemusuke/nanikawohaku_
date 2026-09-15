@@ -156,30 +156,59 @@ Reply.belongsTo(Post, { foreignKey: 'postId' });
 
 async function initDatabase() {
   try {
-    // スキーマ変更とデータクリーンアップのために一時的に外部キーチェックを無効化
-    await sequelize.query('PRAGMA foreign_keys = OFF;');
+        // スキーマ変更とデータクリーンアップのために一時的に外部キーチェックを無効化
+        await sequelize.query('PRAGMA foreign_keys = OFF;');
 
-    // --- データクリーンアップ: sync前にNULLのIDがないことを確認 ---
-    // モデルが完全に同期されていない可能性があるため、生のクエリを使用してNULLのIDを持つ投稿をフェッチ
-    const [rows] = await sequelize.query('SELECT rowid FROM Posts WHERE id IS NULL;');
-    for (const row of rows) {
-        const newId = nanoid(NANOID_LENGTH);
-        await sequelize.query(`UPDATE Posts SET id = '${newId}' WHERE rowid = ${row.rowid};`);
-        console.log(`NULLのIDを持つ投稿 (rowid: ${row.rowid}) を修正しました。新しいID: ${newId}`);
+        // --- データクリーンアップ: sync前にNULLのIDがないことを確認 ---
+        // Postsテーブルが存在するか確認
+        const [tableCheck] = await sequelize.query("SELECT name FROM sqlite_master WHERE type='table' AND name='Posts';");
+        if (tableCheck.length > 0) {
+            console.log('Postsテーブルが存在します。NULLのIDを修正します...');
+            // idカラムが存在しない場合に備えて追加（既に存在すれば何もしない）
+            await sequelize.query('ALTER TABLE Posts ADD COLUMN IF NOT EXISTS id TEXT;');
+
+            // モデルが完全に同期されていない可能性があるため、生のクエリを使用してNULLのIDを持つ投稿をフェッチ
+            const [rowsToFix] = await sequelize.query('SELECT rowid FROM Posts WHERE id IS NULL;');
+            console.log('検出されたNULLのIDを持つ投稿:', rowsToFix);
+
+            if (rowsToFix.length > 0) {
+                console.log(`${rowsToFix.length}個のNULLのIDを持つ投稿を検出しました。修正します...`);
+                for (const row of rowsToFix) {
+                    const newId = nanoid(NANOID_LENGTH);
+                    await sequelize.query(`UPDATE Posts SET id = '${newId}' WHERE rowid = ${row.rowid};`);
+                    console.log(`NULLのIDを持つ投稿 (rowid: ${row.rowid}) を修正しました。新しいID: ${newId}`);
+                }
+                console.log('NULLのID修正が完了しました。');
+
+                // 修正後にNULLのIDが残っていないか検証
+                const [remainingNulls] = await sequelize.query('SELECT rowid FROM Posts WHERE id IS NULL;');
+                if (remainingNulls.length > 0) {
+                    console.error(`警告: NULLのIDを持つ投稿がまだ${remainingNulls.length}個残っています！`);
+                }
+                else {
+                    console.log('NULLのIDを持つ投稿はすべて修正されました。');
+                }
+            }
+            else {
+                console.log('NULLのIDを持つ投稿は見つかりませんでした。');
+            }
+        }
+        else {
+            console.log('Postsテーブルが存在しません。NULLのID修正はスキップします。');
+        }
+        // --- データクリーンアップ終了 ---
+
+        // モデルをデータベースと同期
+        await sequelize.sync({ alter: true });
+        console.log('データベースモデルがロードされました');
+
+    } catch (error) {
+        console.error('データベースモデルのロード中にエラーが発生しました:', error);
+        throw error; // エラーを再スローして、ボットの起動プロセスに伝える
+    } finally {
+        // 常に外部キーチェックを再度有効化
+        await sequelize.query('PRAGMA foreign_keys = ON;');
     }
-    // --- データクリーンアップ終了 ---
-
-    // モデルをデータベースと同期
-    await sequelize.sync({ alter: true });
-    console.log('データベースモデルがロードされました');
-
-  } catch (error) {
-    console.error('データベースモデルのロード中にエラーが発生しました:', error);
-    throw error; // エラーを再スローして、ボットの起動プロセスに伝える
-  } finally {
-    // 常に外部キーチェックを再度有効化
-    await sequelize.query('PRAGMA foreign_keys = ON;');
-  }
 }
 
 module.exports = { sequelize, Post, Like, Reply, initDatabase };
