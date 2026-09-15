@@ -255,8 +255,9 @@ module.exports = {
         }
         reaction.users.remove(user.id).catch(() => {}); // ユーザーのリアクションを削除
       });
+      reactionCollector.on('end', collected => {
         if (message && !message.deleted) {
-          await message.reactions.removeAll().catch(() => {});
+          message.reactions.removeAll().catch(error => console.error('Failed to clear reactions: ', error));
         }
       });
     } catch (error) {
