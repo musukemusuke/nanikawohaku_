@@ -42,28 +42,28 @@ module.exports = {
 
     const embedsAndComponents = [];
     for (const post of posts) {
-      const likeUsers = await Promise.all(post.Likes.map(async like => {
-        const user = await interaction.client.users.fetch(like.userId);
-        return user.username;
-      }));
-      const postEmbeds = createPostDetailEmbed(post, likeUsers, post.Replies);
+      const postEmbeds = createPostDetailEmbed(post, interaction.user, interaction.guild);
 
       const userLiked = await Like.findOne({ where: { userId: interaction.user.id, postId: post.id } });
       const likeButtonLabel = userLiked ? '❤️ いいね済み' : '❤️ いいね';
       const likeButtonStyle = userLiked ? ButtonStyle.Success : ButtonStyle.Primary;
 
-      const baseActionRow = new ActionRowBuilder()
+      const actionRow1 = new ActionRowBuilder()
         .addComponents(
           new ButtonBuilder()
-            .setCustomId(`like_${post.id}`)
+            .setCustomId(`like_button_${post.id}`)
             .setLabel(likeButtonLabel)
-            .setStyle(likeButtonStyle),
+            .setStyle(likeButtonStyle)
+        );
+
+      const actionRow2 = new ActionRowBuilder()
+        .addComponents(
           new ButtonBuilder()
-            .setCustomId(`reply_${post.id}`)
+            .setCustomId(`reply_button_${post.id}`)
             .setLabel('💬 投稿にリプライ')
             .setStyle(ButtonStyle.Secondary)
         );
-      embedsAndComponents.push({ embeds: postEmbeds, components: [baseActionRow] });
+      embedsAndComponents.push({ embeds: postEmbeds, components: [actionRow1, actionRow2] });
     }
 
     if (embedsAndComponents.length > 0) {

@@ -16,28 +16,38 @@ function createPostPreviewEmbed(username, content, imageUrl) {
 }
 
 // リプライを階層的にフォーマットするヘルパー関数
-function formatReplies(replies, parentId = null, depth = 0) {
+async function formatReplies(replies, guild, parentId = null, depth = 0) {
   let result = '';
   const indent = '  '.repeat(depth); // 深さに応じたインデント
   const repliesToProcess = replies.filter(r => r.parentId === parentId);
 
   for (const reply of repliesToProcess) {
-    const date = new Date(reply.createdAt);
-    const dateStr = `${date.getFullYear()}/${(date.getMonth()+1).toString().padStart(2,'0')}/${date.getDate().toString().padStart(2,'0')} ${date.getHours().toString().padStart(2,'0')}:${date.getMinutes().toString().padStart(2,'0')}`;
-    result += `${indent}💬 **${reply.username}**: ${reply.content} (${dateStr})\n`;
-    // 再帰的に子リプライを処理
-    result += formatReplies(replies, reply.id, depth + 1);
-  }
+      const user = await guild.client.users.fetch(reply.userId);
+      const member = guild.members.cache.get(reply.userId);
+      const displayName = member ? member.displayName : user.username;
+      const date = new Date(reply.createdAt);
+      const dateStr = `${date.getFullYear()}/${(date.getMonth()+1).toString().padStart(2,'0')}/${date.getDate().toString().padStart(2,'0')} ${date.getHours().toString().padStart(2,'0')}:${date.getMinutes().toString().padStart(2,'0')}`;
+      result += `${indent}💬 **${displayName} (@${user.username})**: ${reply.content} (${dateStr})\n`;
+      // 再帰的に子リプライを処理
+      result += await formatReplies(replies, guild, reply.id, depth + 1);
+    }
   return result;
 }
 
-function createPostDetailEmbed(post, likeUsers = [], replies = []) {
+async function createPostDetailEmbed(post, interactionUser, guild) {
   const baseEmbed = new EmbedBuilder()
     .setColor(post.isPrivate ? '#FF6B6B' : '#1DA1F2')
     .setAuthor({ name: post.username });
 
   // リプライを階層化して文字列化
-  const formattedReplies = formatReplies(replies);
+  const formattedReplies = await formatReplies(post.Replies, guild);
+
+  const likeUsers = await Promise.all(post.Likes.map(async like => {
+    const user = await guild.client.users.fetch(like.userId);
+    const member = guild.members.cache.get(like.userId);
+    const displayName = member ? member.displayName : user.username;
+    return `${displayName} (@${user.username})`;
+  }));
   
   if (post.imageUrl) {
     const contentEmbed = new EmbedBuilder(baseEmbed)
@@ -45,47 +55,76 @@ function createPostDetailEmbed(post, likeUsers = [], replies = []) {
       .setImage(post.imageUrl)
       .setTimestamp(post.createdAt);
 
+    const embeds = [contentEmbed]; // Start with content embed
+
     const metadataEmbed = new EmbedBuilder()
       .setColor(baseEmbed.data.color)
       .addFields(
         { name: '投稿ID', value: `${post.id}`, inline: true },
         { name: 'ステータス', value: post.isPrivate ? '🔒 非公開' : '🌐 公開', inline: true }
       );
+    embeds.push(metadataEmbed); // Add metadata embed
 
     // リプライがあれば追加
     if (formattedReplies.trim()) {
-      metadataEmbed.addFields({ name: '💬 リプライ', value: formattedReplies.substring(0, 1024) }); // Discordの文字数制限対策
+      const repliesEmbed = new EmbedBuilder()
+        .setColor(baseEmbed.data.color)
+        .addFields({ name: '💬 リプライ', value: formattedReplies.substring(0, 1024) });
+      embeds.push(repliesEmbed);
     }
 
+    // いいねがあれば追加
     if (likeUsers.length > 0) {
-      metadataEmbed.addFields({ name: `❤️ ${likeUsers.length}件のいいね`, value: likeUsers.join(', ') });
+      const likesEmbed = new EmbedBuilder()
+        .setColor(baseEmbed.data.color)
+        .addFields({ name: `❤️ ${likeUsers.length}件のいいね`, value: likeUsers.join(', ') });
+      embeds.push(likesEmbed);
     } else {
-      metadataEmbed.addFields({ name: `❤️ 0件のいいね`, value: 'まだいいねはありません' });
+      const likesEmbed = new EmbedBuilder()
+        .setColor(baseEmbed.data.color)
+        .addFields({ name: `❤️ 0件のいいね`, value: 'まだいいねはありません' });
+      embeds.push(likesEmbed);
     }
 
-    return [contentEmbed, metadataEmbed];
+    return embeds;
   } else {
-    const singleEmbed = new EmbedBuilder(baseEmbed)
-      .setDescription(`${post.content}`)
-      .addFields(
-        { name: '投稿ID', value: `${post.id}`, inline: true },
-        { name: 'ステータス', value: post.isPrivate ? '🔒 非公開' : '🌐 公開', inline: true }
-      )
-      .setTimestamp(post.createdAt);
+      const contentEmbed = new EmbedBuilder(baseEmbed)
+        .setDescription(`${post.content}`)
+        .setTimestamp(post.createdAt);
 
-    // リプライがあれば追加
-    if (formattedReplies.trim()) {
-      singleEmbed.addFields({ name: '💬 リプライ', value: formattedReplies.substring(0, 1024) });
+      const embeds = [contentEmbed]; // Start with content embed
+
+      const metadataEmbed = new EmbedBuilder()
+        .setColor(baseEmbed.data.color)
+        .addFields(
+          { name: '投稿ID', value: `${post.id}`, inline: true },
+          { name: 'ステータス', value: post.isPrivate ? '🔒 非公開' : '🌐 公開', inline: true }
+        );
+      embeds.push(metadataEmbed); // Add metadata embed
+
+      // リプライがあれば追加
+      if (formattedReplies.trim()) {
+        const repliesEmbed = new EmbedBuilder()
+          .setColor(baseEmbed.data.color)
+          .addFields({ name: '💬 リプライ', value: formattedReplies.substring(0, 1024) });
+        embeds.push(repliesEmbed);
+      }
+
+      // いいねがあれば追加
+      if (likeUsers.length > 0) {
+        const likesEmbed = new EmbedBuilder()
+          .setColor(baseEmbed.data.color)
+          .addFields({ name: `❤️ ${likeUsers.length}件のいいね`, value: likeUsers.join(', ') });
+        embeds.push(likesEmbed);
+      } else {
+        const likesEmbed = new EmbedBuilder()
+          .setColor(baseEmbed.data.color)
+          .addFields({ name: `❤️ 0件のいいね`, value: 'まだいいねはありません' });
+        embeds.push(likesEmbed);
+      }
+
+      return embeds;
     }
-
-    if (likeUsers.length > 0) {
-      singleEmbed.addFields({ name: `❤️ ${likeUsers.length}件のいいね`, value: likeUsers.join(', ') });
-    } else {
-      singleEmbed.addFields({ name: `❤️ 0件のいいね`, value: 'まだいいねはありません' });
-    }
-
-    return [singleEmbed];
-  }
 }
 
 function createPostListEmbed(posts, isPrivateView = false) {
@@ -138,19 +177,19 @@ function createMyPostDetailEmbed(post) {
     .setColor(post.isPrivate ? '#FF6B6B' : '#1DA1F2')
     .setAuthor({ name: post.username });
 
-  // リプライを階層的にフォーマット
-  let repliesText = '';
-  if (post.Replies && post.Replies.length > 0) {
-    repliesText = '\n\n---\n**💬 リプライ一覧**\n' + formatReplies(post.Replies);
-    // DiscordのEmbed文字数制限(1024文字)に対応
-    if (repliesText.length > 900) {
-      repliesText = repliesText.substring(0, 900) + '\n...(リプライが多いため省略)';
-    }
-  }
+  // リプライ表示はmypostsでは行わないため削除
+  // let repliesText = '';
+  // if (post.Replies && post.Replies.length > 0) {
+  //   repliesText = '\n\n---\n**💬 リプライ**\n' + formatReplies(post.Replies);
+  //   // DiscordのEmbed文字数制限(1024文字)に対応
+  //   if (repliesText.length > 900) {
+  //     repliesText = repliesText.substring(0, 900) + '\n...(リプライが多いため省略)';
+  //   }
+  // }
 
   if (post.imageUrl) {
     const contentEmbed = new EmbedBuilder(baseEmbed)
-      .setDescription(`**投稿ID:** ${post.id}\n\n${post.content}${repliesText}`)
+      .setDescription(`**投稿ID:** ${post.id}\n\n${post.content}`)
       .setImage(post.imageUrl)
       .setTimestamp(post.createdAt);
 
@@ -164,7 +203,7 @@ function createMyPostDetailEmbed(post) {
 
   } else {
     const singleEmbed = new EmbedBuilder(baseEmbed)
-      .setDescription(`**投稿ID:** ${post.id}\n\n${post.content}${repliesText}`)
+      .setDescription(`**投稿ID:** ${post.id}\n\n${post.content}`)
       .addFields(
         { name: 'ステータス', value: post.isPrivate ? '🔒 非公開' : '🌐 公開', inline: true }
       )
