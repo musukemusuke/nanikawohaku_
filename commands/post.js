@@ -83,7 +83,6 @@ module.exports = {
         const newPost = await Post.create({
           userId: interaction.user.id,
           username: interaction.user.username,
-          displayName: interaction.user.displayName,
           content: content,
           imageUrl: imageUrl || null,
           isPrivate: isPrivate,
@@ -115,7 +114,7 @@ module.exports = {
       const imageUrl = interaction.fields.getTextInputValue('post_image') || null;
       const allowedUsers = interaction.fields.getTextInputValue('allowed_users') || '';
       
-      const previewEmbed = createPostPreviewEmbed(interaction.user.displayName, interaction.user.username, content, imageUrl);
+      const previewEmbed = createPostPreviewEmbed(interaction.user.username, content, imageUrl);
       
       const confirmationEmbed = new EmbedBuilder()
         .setColor('#FFA500') // オレンジ色など、注意を促す色

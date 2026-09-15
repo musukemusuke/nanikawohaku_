@@ -16,7 +16,6 @@ module.exports = async function handleModalSubmit(interaction) {
       userId: interaction.user.id,
       guildId: interaction.guild.id,
       username: interaction.user.username,
-      displayName: interaction.user.displayName, // ニックネームを保存
       content,
       imageUrl,
       isPrivate
@@ -48,7 +47,6 @@ module.exports = async function handleModalSubmit(interaction) {
       userId: interaction.user.id,
       guildId: interaction.guild.id,
       username: interaction.user.username,
-      displayName: interaction.user.displayName,
       postId,
       parentId: parentReplyId,
       content

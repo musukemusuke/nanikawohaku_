@@ -28,11 +28,6 @@ Post.init({
     type: DataTypes.STRING,
     allowNull: false
   },
-  displayName: {
-    type: DataTypes.STRING,
-    allowNull: false,
-    defaultValue: ''
-  },
   content: {
     type: DataTypes.TEXT,
     allowNull: false
@@ -86,15 +81,6 @@ Like.init({
     type: DataTypes.STRING,
     allowNull: false
   },
-  username: {
-    type: DataTypes.STRING,
-    allowNull: false
-  },
-  displayName: {
-    type: DataTypes.STRING,
-    allowNull: false,
-    defaultValue: ''
-  },
   postId: {
     type: DataTypes.STRING(NANOID_LENGTH),
     allowNull: false,
@@ -128,11 +114,6 @@ Reply.init({
   username: {
     type: DataTypes.STRING,
     allowNull: false
-  },
-  displayName: {
-    type: DataTypes.STRING,
-    allowNull: false,
-    defaultValue: ''
   },
   postId: {
     type: DataTypes.STRING(NANOID_LENGTH),
@@ -173,36 +154,8 @@ Reply.belongsTo(Post, { foreignKey: 'postId' });
 
 async function initDatabase() {
   try {
-    // 外部キー制約を一時的に無効化してからテーブルを再作成
-    await sequelize.query('PRAGMA foreign_keys = OFF;');
-    // モデルの変更をデータベースに同期（alter: trueで既存データを保持しつつ変更）
+    // モデルの変更をデータベースに同期（alter: trueでカラムの追加に対応）
     await sequelize.sync({ alter: true });
-    // 外部キー制約を再度有効化
-    await sequelize.query('PRAGMA foreign_keys = ON;');
-    
-    // 既存のレコードでdisplayNameが空のものを更新（usernameから自動生成）
-    const postsToUpdate = await Post.findAll({ where: { displayName: '' } });
-    for (const post of postsToUpdate) {
-      // usernameから表示名部分を抽出（元のデータがusernameのみだった場合のため）
-      // 既存のユーザー名からdisplayName(username)形式に変換
-      await post.update({ displayName: `${post.username}(${post.username})` });
-    }
-    
-    const repliesToUpdate = await Reply.findAll({ where: { displayName: '' } });
-    for (const reply of repliesToUpdate) {
-      await reply.update({ displayName: `${reply.username}(${reply.username})` });
-    }
-    
-    // 既存のLikeレコードでdisplayNameが空のものを更新
-    const likesToUpdate = await Like.findAll({ where: { displayName: '' } });
-    for (const like of likesToUpdate) {
-      // userIdからユーザー情報を取得できない場合は暫定的にuserIdを使用
-      await like.update({ 
-        username: like.userId, 
-        displayName: like.userId 
-      });
-    }
-    
     console.log('データベースモデルがロードされました');
   } catch (error) {
     console.error('データベースモデルのロード中にエラーが発生しました:', error);

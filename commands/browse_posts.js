@@ -24,7 +24,9 @@ module.exports = {
     for (const post of posts) {
       const likeUsers = await Promise.all(post.Likes.map(async like => {
         const user = await interaction.client.users.fetch(like.userId);
-        return user.username;
+        const member = interaction.guild.members.cache.get(like.userId);
+        const displayName = member ? member.displayName : user.username;
+        return `${displayName} (@${user.username})`;
       }));
       const postEmbeds = createPostDetailEmbed(post, likeUsers, post.Replies);
 

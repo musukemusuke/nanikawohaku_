@@ -1,10 +1,10 @@
 const { EmbedBuilder } = require('discord.js');
 
-function createPostPreviewEmbed(displayName, username, content, imageUrl) {
+function createPostPreviewEmbed(username, content, imageUrl) {
   const embed = new EmbedBuilder()
     .setColor('#00FF00') // 緑色
     // .setTitle('投稿プレビュー')
-    .setAuthor({ name: `${displayName}(${username})` })
+    .setAuthor({ name: username })
     .setDescription(content)
     .setTimestamp(); // 引数なし
 
@@ -24,23 +24,20 @@ function formatReplies(replies, parentId = null, depth = 0) {
   for (const reply of repliesToProcess) {
     const date = new Date(reply.createdAt);
     const dateStr = `${date.getFullYear()}/${(date.getMonth()+1).toString().padStart(2,'0')}/${date.getDate().toString().padStart(2,'0')} ${date.getHours().toString().padStart(2,'0')}:${date.getMinutes().toString().padStart(2,'0')}`;
-    result += `${indent}💬 **${reply.displayName}(${reply.username})**: ${reply.content} (${dateStr})\n`;
+    result += `${indent}💬 **${reply.username}**: ${reply.content} (${dateStr})\n`;
     // 再帰的に子リプライを処理
     result += formatReplies(replies, reply.id, depth + 1);
   }
   return result;
 }
 
-function createPostDetailEmbed(post, likes = [], replies = []) {
+function createPostDetailEmbed(post, likeUsers = [], replies = []) {
   const baseEmbed = new EmbedBuilder()
     .setColor(post.isPrivate ? '#FF6B6B' : '#1DA1F2')
-    .setAuthor({ name: `${post.displayName}(${post.username})` });
+    .setAuthor({ name: post.username });
 
   // リプライを階層化して文字列化
   const formattedReplies = formatReplies(replies);
-  
-  // いいねしたユーザーを「ニックネーム(ユーザー名)」の形式でフォーマット
-  const formattedLikeUsers = likes.map(like => `${like.displayName}(${like.username})`);
   
   if (post.imageUrl) {
     const contentEmbed = new EmbedBuilder(baseEmbed)
@@ -61,8 +58,8 @@ function createPostDetailEmbed(post, likes = [], replies = []) {
       metadataEmbed.addFields({ name: '💬 リプライ', value: formattedReplies.substring(0, 1024) }); // Discordの文字数制限対策
     }
 
-    if (formattedLikeUsers.length > 0) {
-      metadataEmbed.addFields({ name: 'いいねしたユーザー', value: formattedLikeUsers.join(', ') || 'なし' });
+    if (likeUsers.length > 0) {
+      metadataEmbed.addFields({ name: 'いいねしたユーザー', value: likeUsers.join(', ') || 'なし' });
     }
 
     return [contentEmbed, metadataEmbed];
@@ -81,8 +78,8 @@ function createPostDetailEmbed(post, likes = [], replies = []) {
       singleEmbed.addFields({ name: '💬 リプライ', value: formattedReplies.substring(0, 1024) });
     }
 
-    if (formattedLikeUsers.length > 0) {
-      singleEmbed.addFields({ name: 'いいねしたユーザー', value: formattedLikeUsers.join(', ') || 'なし' });
+    if (likeUsers.length > 0) {
+      singleEmbed.addFields({ name: 'いいねしたユーザー', value: likeUsers.join(', ') || 'なし' });
     }
 
     return [singleEmbed];
@@ -114,7 +111,7 @@ function createPostListEmbed(posts, isPrivateView = false) {
     const replyCount = post.Replies ? post.Replies.length : 0;
 
     description += `**投稿ID:** ${post.id}\n`;
-    description += `${statusIcon} ${imageIcon}${post.displayName}(${post.username}): ${content}${post.content.length > 150 ? '...' : ''}\n`;
+    description += `${statusIcon} ${imageIcon}${post.username}: ${content}${post.content.length > 150 ? '...' : ''}\n`;
     description += `❤️${post.Likes ? post.Likes.length : 0} 💬${replyCount} | ${timeString}\n\n`;
   });
   
@@ -137,7 +134,7 @@ module.exports = {
 function createMyPostDetailEmbed(post) {
   const baseEmbed = new EmbedBuilder()
     .setColor(post.isPrivate ? '#FF6B6B' : '#1DA1F2')
-    .setAuthor({ name: `${post.displayName}(${post.username})` });
+    .setAuthor({ name: post.username });
 
   // リプライを階層的にフォーマット
   let repliesText = '';
@@ -195,7 +192,7 @@ function createMyReplyEmbed(reply) {
   const embed = new EmbedBuilder()
     .setColor('#1DA1F2')
     .setTitle('あなたのリプライ')
-    .setAuthor({ name: `${reply.displayName}(${reply.username})` })
+    .setAuthor({ name: reply.username })
     .setDescription(
       `**リプライID:** ${reply.id}\n` +
       `**リプライ内容:** ${reply.content}\n\n` +

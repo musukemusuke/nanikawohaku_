@@ -1,54 +1,19 @@
 const { ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder } = require('discord.js');
 const { Like, Reply, Post } = require('../database');
-const { createPostDetailEmbed } = require('../utils/embeds');
 
 module.exports = async function handleButtonInteraction(interaction) {
   // いいねボタンの処理
   if (interaction.customId.startsWith('like_')) {
     // like_の後の全ての文字列を結合して元のpost.idを復元（post.idに_が含まれる場合に対応）
     const postId = interaction.customId.slice(5); // 'like_'の5文字を削除
-    const targetPost = await Post.findByPk(postId);
-    if (!targetPost) {
-      return interaction.reply({ content: '投稿が見つかりませんでした。', flags: 64 });
-    }
-    
     const existingLike = await Like.findOne({ where: { userId: interaction.user.id, postId } });
     
     if (existingLike) {
       await existingLike.destroy();
-      // いいね数を再計算して更新
-      const likeCount = await Like.count({ where: { postId } });
-      await targetPost.update({ likes: likeCount });
-      
-      // 最新のデータを取得して埋め込みを再生成
-      const updatedPost = await Post.findByPk(postId, {
-        include: [Like, Reply]
-      });
-      const likes = await Like.findAll({ where: { postId }, attributes: ['displayName', 'username'] });
-      const embeds = createPostDetailEmbed(updatedPost, likes, updatedPost.Replies || []);
-      
-      // 元のメッセージの埋め込みを更新
-      return interaction.update({ embeds });
+      return interaction.reply({ content: 'いいねを取り消しました。', flags: 64 });
     } else {
-      await Like.create({ 
-        userId: interaction.user.id, 
-        username: interaction.user.username,
-        displayName: interaction.user.displayName,
-        postId 
-      });
-      // いいね数を再計算して更新
-      const likeCount = await Like.count({ where: { postId } });
-      await targetPost.update({ likes: likeCount });
-      
-      // 最新のデータを取得して埋め込みを再生成
-      const updatedPost = await Post.findByPk(postId, {
-        include: [Like, Reply]
-      });
-      const likes = await Like.findAll({ where: { postId }, attributes: ['displayName', 'username'] });
-      const embeds = createPostDetailEmbed(updatedPost, likes, updatedPost.Replies || []);
-      
-      // 元のメッセージの埋め込みを更新
-      return interaction.update({ embeds });
+      await Like.create({ userId: interaction.user.id, postId });
+      return interaction.reply({ content: 'いいねしました！', flags: 64 });
     }
   }
 

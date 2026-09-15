@@ -19,9 +19,6 @@ pids
 build/
 dist/
 
-# Local database
-data/
-
 # OS files
 .DS_Store
 Thumbs.db
