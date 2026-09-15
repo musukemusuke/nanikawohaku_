@@ -42,7 +42,7 @@ module.exports = {
 
     const embedsAndComponents = [];
     for (const post of posts) {
-      const postEmbeds = createPostDetailEmbed(post, interaction.user, interaction.guild);
+      const postEmbeds = await createPostDetailEmbed(post, interaction.user, interaction.guild);
 
       const userLiked = await Like.findOne({ where: { userId: interaction.user.id, postId: post.id } });
       const likeButtonLabel = userLiked ? '❤️ いいね済み' : '❤️ いいね';

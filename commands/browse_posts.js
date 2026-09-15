@@ -47,43 +47,83 @@ module.exports = {
 
     const initialPostData = await fetchAndSendPost(currentIndex);
 
+    // 前後に移動するためのナビゲーションボタンを追加
+    const navRow = new ActionRowBuilder()
+      .addComponents(
+        new ButtonBuilder()
+          .setCustomId('prev_post')
+          .setLabel('◀️ 前へ')
+          .setStyle(ButtonStyle.Secondary),
+        new ButtonBuilder()
+          .setCustomId('next_post')
+          .setLabel('次へ ▶️')
+          .setStyle(ButtonStyle.Secondary)
+      );
+
+    // 初期のコンポーネントにナビゲーションボタンを追加
+    const initialComponents = [...initialPostData.components, navRow];
     const message = await interaction.reply({
       embeds: initialPostData.embeds,
-      components: initialPostData.components,
-      fetchReply: true // メッセージオブジェクトを取得するために必要
+      components: initialComponents,
+      fetchReply: true,
+      flags: 64
     });
 
-    await message.react('◀️');
-    await message.react('▶️');
+    // リアクションによるナビゲーションも試行（権限がある場合のみ動作）
+    try {
+      await message.react('◀️');
+      await message.react('▶️');
 
-    const filter = (reaction, user) => {
-      return ['◀️', '▶️'].includes(reaction.emoji.name) && user.id === interaction.user.id;
-    };
+      const filter = (reaction, user) => {
+        return ['◀️', '▶️'].includes(reaction.emoji.name) && user.id === interaction.user.id;
+      };
 
-    const collector = message.createReactionCollector({ filter });
+      const collector = message.createReactionCollector({ filter });
 
-    collector.on('collect', async (reaction, user) => {
-      if (reaction.emoji.name === '◀️') {
+      collector.on('collect', async (reaction, user) => {
+        if (reaction.emoji.name === '◀️') {
+          currentIndex = (currentIndex - 1 + posts.length) % posts.length;
+        } else if (reaction.emoji.name === '▶️') {
+          currentIndex = (currentIndex + 1) % posts.length;
+        }
+
+        const newPostData = await fetchAndSendPost(currentIndex);
+        const newPostComponents = [...newPostData.components, navRow];
+        await message.edit({
+          embeds: newPostData.embeds,
+          components: newPostComponents
+        });
+
+        // ユーザーのリアクションを削除
+        reaction.users.remove(user.id).catch(() => {});
+      });
+
+      collector.on('end', async collected => {
+        if (message && !message.deleted) {
+          await message.reactions.removeAll().catch(() => {});
+        }
+      });
+    } catch (error) {
+      console.log('リアクションの追加に失敗しました（権限不足の可能性があります）:', error.message);
+    }
+
+    // ボタンによるナビゲーションハンドラー（常に動作）
+    const buttonFilter = i => ['prev_post', 'next_post'].includes(i.customId) && i.user.id === interaction.user.id;
+    const buttonCollector = message.createMessageComponentCollector({ filter });
+
+    buttonCollector.on('collect', async i => {
+      if (i.customId === 'prev_post') {
         currentIndex = (currentIndex - 1 + posts.length) % posts.length;
-      } else if (reaction.emoji.name === '▶️') {
+      } else if (i.customId === 'next_post') {
         currentIndex = (currentIndex + 1) % posts.length;
       }
 
       const newPostData = await fetchAndSendPost(currentIndex);
-      await message.edit({
+      const newPostComponents = [...newPostData.components, navRow];
+      await i.update({
         embeds: newPostData.embeds,
-        components: newPostData.components
+        components: newPostComponents
       });
-
-      // ユーザーのリアクションを削除
-      reaction.users.remove(user.id);
-    });
-
-    collector.on('end', async collected => {
-      // コレクターが終了したら、メッセージからすべてのリアクションを削除
-      if (message && !message.deleted) {
-        await message.reactions.removeAll().catch(error => console.error('Failed to clear reactions: ', error));
-      }
     });
   }
 };
