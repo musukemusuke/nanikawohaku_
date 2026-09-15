@@ -49,8 +49,7 @@ function createPostDetailEmbed(post, likeUsers = [], replies = []) {
       .setColor(baseEmbed.data.color)
       .addFields(
         { name: '投稿ID', value: `${post.id}`, inline: true },
-        { name: 'ステータス', value: post.isPrivate ? '🔒 非公開' : '🌐 公開', inline: true },
-        { name: 'いいね', value: `${post.likes}`, inline: true }
+        { name: 'ステータス', value: post.isPrivate ? '🔒 非公開' : '🌐 公開', inline: true }
       );
 
     // リプライがあれば追加
@@ -59,7 +58,9 @@ function createPostDetailEmbed(post, likeUsers = [], replies = []) {
     }
 
     if (likeUsers.length > 0) {
-      metadataEmbed.addFields({ name: 'いいねしたユーザー', value: likeUsers.join(', ') || 'なし' });
+      metadataEmbed.addFields({ name: `❤️ ${likeUsers.length}件のいいね`, value: likeUsers.join(', ') });
+    } else {
+      metadataEmbed.addFields({ name: `❤️ 0件のいいね`, value: 'まだいいねはありません' });
     }
 
     return [contentEmbed, metadataEmbed];
@@ -68,8 +69,7 @@ function createPostDetailEmbed(post, likeUsers = [], replies = []) {
       .setDescription(`${post.content}`)
       .addFields(
         { name: '投稿ID', value: `${post.id}`, inline: true },
-        { name: 'ステータス', value: post.isPrivate ? '🔒 非公開' : '🌐 公開', inline: true },
-        { name: 'いいね', value: `${post.likes}`, inline: true }
+        { name: 'ステータス', value: post.isPrivate ? '🔒 非公開' : '🌐 公開', inline: true }
       )
       .setTimestamp(post.createdAt);
 
@@ -79,7 +79,9 @@ function createPostDetailEmbed(post, likeUsers = [], replies = []) {
     }
 
     if (likeUsers.length > 0) {
-      singleEmbed.addFields({ name: 'いいねしたユーザー', value: likeUsers.join(', ') || 'なし' });
+      singleEmbed.addFields({ name: `❤️ ${likeUsers.length}件のいいね`, value: likeUsers.join(', ') });
+    } else {
+      singleEmbed.addFields({ name: `❤️ 0件のいいね`, value: 'まだいいねはありません' });
     }
 
     return [singleEmbed];
