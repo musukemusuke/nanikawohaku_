@@ -173,8 +173,12 @@ Reply.belongsTo(Post, { foreignKey: 'postId' });
 
 async function initDatabase() {
   try {
-    // モデルの変更をデータベースに同期（force: trueでテーブルを再作成して外部キー制約を解消）
+    // 外部キー制約を一時的に無効化してからテーブルを再作成
+    await sequelize.query('PRAGMA foreign_keys = OFF;');
+    // モデルの変更をデータベースに同期（force: trueでテーブルを再作成）
     await sequelize.sync({ force: true });
+    // 外部キー制約を再度有効化
+    await sequelize.query('PRAGMA foreign_keys = ON;');
     
     // 既存のレコードでdisplayNameが空のものを更新（usernameから自動生成）
     const postsToUpdate = await Post.findAll({ where: { displayName: '' } });
