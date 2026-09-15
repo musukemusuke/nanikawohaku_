@@ -112,7 +112,12 @@ module.exports = {
       const isPrivate = interaction.customId.split('_')[2] === 'true';
       const content = interaction.fields.getTextInputValue('post_content');
       const imageUrl = interaction.fields.getTextInputValue('post_image') || null;
-      const allowedUsers = interaction.fields.getTextInputValue('allowed_users') || '';
+      let allowedUsers = '';
+      try {
+        allowedUsers = interaction.fields.getTextInputValue('allowed_users') || '';
+      } catch (e) {
+        // 公開投稿の場合allowed_usersフィールドが存在しないので空文字のまま
+      }
       
       const previewEmbed = createPostPreviewEmbed(interaction.user.username, content, imageUrl);
       
