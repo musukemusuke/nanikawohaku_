@@ -133,7 +133,7 @@ module.exports = {
         );
       
       await interaction.reply({
-        content: '投稿内容の確認',
+        content: '投稿プレビュー',
         embeds: [previewEmbed, confirmationEmbed],
         components: [confirmRow],
         flags: [64]

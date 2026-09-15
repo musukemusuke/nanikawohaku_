@@ -20,50 +20,70 @@ module.exports = {
       return interaction.reply({ content: 'まだ公開投稿がありません。', flags: 64 });
     }
 
-    const embedsAndComponents = [];
-    for (const post of posts) {
-      const likeUsers = await Promise.all(post.Likes.map(async like => {
-        const user = await interaction.client.users.fetch(like.userId);
-        const member = interaction.guild.members.cache.get(like.userId);
-        const displayName = member ? member.displayName : user.username;
-        return `${displayName} (@${user.username})`;
-      }));
-      const postEmbeds = createPostDetailEmbed(post, likeUsers, post.Replies);
+    let currentIndex = 0;
+
+    const fetchAndSendPost = async (index) => {
+      const post = posts[index];
+      const postEmbeds = await createPostDetailEmbed(post, interaction.user, interaction.guild);
 
       const userLiked = await Like.findOne({ where: { userId: interaction.user.id, postId: post.id } });
       const likeButtonLabel = userLiked ? '❤️ いいね済み' : '❤️ いいね';
       const likeButtonStyle = userLiked ? ButtonStyle.Success : ButtonStyle.Primary;
 
-      const baseActionRow = new ActionRowBuilder()
+      const actionRow = new ActionRowBuilder()
         .addComponents(
           new ButtonBuilder()
-            .setCustomId(`like_${post.id}`)
+            .setCustomId(`like_button_${post.id}`)
             .setLabel(likeButtonLabel)
             .setStyle(likeButtonStyle),
           new ButtonBuilder()
-            .setCustomId(`reply_${post.id}`)
+            .setCustomId(`reply_button_${post.id}`)
             .setLabel('💬 投稿にリプライ')
             .setStyle(ButtonStyle.Secondary)
         );
-      embedsAndComponents.push({ embeds: postEmbeds, components: [baseActionRow] });
-    }
+      
+      return { embeds: postEmbeds, components: [actionRow] };
+    };
 
-    if (embedsAndComponents.length > 0) {
-      await interaction.reply({
-        embeds: embedsAndComponents[0].embeds,
-        components: embedsAndComponents[0].components,
-        flags: 64
-      });
-      for (let i = 1; i < embedsAndComponents.length; i++) {
-        await interaction.followUp({
-          embeds: embedsAndComponents[i].embeds || [],
-          components: embedsAndComponents[i].components || [],
-          flags: 64
-        });
+    const initialPostData = await fetchAndSendPost(currentIndex);
+
+    const message = await interaction.reply({
+      embeds: initialPostData.embeds,
+      components: initialPostData.components,
+      fetchReply: true // メッセージオブジェクトを取得するために必要
+    });
+
+    await message.react('◀️');
+    await message.react('▶️');
+
+    const filter = (reaction, user) => {
+      return ['◀️', '▶️'].includes(reaction.emoji.name) && user.id === interaction.user.id;
+    };
+
+    const collector = message.createReactionCollector({ filter });
+
+    collector.on('collect', async (reaction, user) => {
+      if (reaction.emoji.name === '◀️') {
+        currentIndex = (currentIndex - 1 + posts.length) % posts.length;
+      } else if (reaction.emoji.name === '▶️') {
+        currentIndex = (currentIndex + 1) % posts.length;
       }
-      return;
-    } else {
-      return interaction.reply({ content: '該当する投稿が見つかりませんでした。', flags: 64 });
-    }
+
+      const newPostData = await fetchAndSendPost(currentIndex);
+      await message.edit({
+        embeds: newPostData.embeds,
+        components: newPostData.components
+      });
+
+      // ユーザーのリアクションを削除
+      reaction.users.remove(user.id);
+    });
+
+    collector.on('end', async collected => {
+      // コレクターが終了したら、メッセージからすべてのリアクションを削除
+      if (message && !message.deleted) {
+        await message.reactions.removeAll().catch(error => console.error('Failed to clear reactions: ', error));
+      }
+    });
   }
 };

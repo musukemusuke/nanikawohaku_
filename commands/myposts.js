@@ -24,7 +24,7 @@ module.exports = {
         const user = await interaction.client.users.fetch(like.userId);
         return user.username;
       }));
-      const postEmbeds = createMyPostDetailEmbed(post, likeUsers, post.Replies);
+      const postEmbeds = createMyPostDetailEmbed(post, likeUsers, []);
 
       // 投稿ごとに固有のIDをボタンに埋め込む
       const baseActionRow = new ActionRowBuilder()
