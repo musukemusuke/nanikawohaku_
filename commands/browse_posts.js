@@ -62,11 +62,11 @@ module.exports = {
 
     // 初期のコンポーネントにナビゲーションボタンを追加
     const initialComponents = [...initialPostData.components, navRow];
-    const response = await interaction.reply({
+    const message = await interaction.reply({
       embeds: initialPostData.embeds,
-      components: initialComponents
-    }).withResponse();
-    const message = response.message;
+      components: initialComponents,
+      fetchReply: true
+    });
 
     // ボタンによるナビゲーションハンドラー（常に動作）
     const buttonFilter = i => ['prev_post', 'next_post'].includes(i.customId) && i.user.id === interaction.user.id;
