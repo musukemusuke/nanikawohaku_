@@ -18,7 +18,9 @@ Post.init({
   id: {
     type: DataTypes.STRING(NANOID_LENGTH),
     defaultValue: () => nanoid(NANOID_LENGTH),
-    primaryKey: true
+    primaryKey: true,
+    allowNull: false, // 明示的にNOT NULLを指定
+    unique: true      // 明示的にUNIQUEを指定
   },
   userId: {
     type: DataTypes.STRING,
