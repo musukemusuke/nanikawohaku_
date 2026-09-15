@@ -1,6 +1,20 @@
 const { ActionRowBuilder, ButtonBuilder, ButtonStyle, ModalBuilder, TextInputBuilder, TextInputStyle, SlashCommandBuilder, EmbedBuilder } = require('discord.js');
 const { Post, Like, Reply } = require('../database');
-const { createPostPreviewEmbed } = require('../utils/embeds');
+
+// 投稿プレビュー用Embed作成関数
+function createPostPreviewEmbed(username, content, imageUrl) {
+  const embed = new EmbedBuilder()
+    .setColor('#00FF00') // 緑色
+    .setAuthor({ name: username })
+    .setDescription(content)
+    .setTimestamp(); // 引数なし
+
+  if (imageUrl) {
+    embed.addFields({ name: '添付メディア', value: imageUrl, inline: false });
+  }
+
+  return embed;
+}
 
 module.exports = {
   data: new SlashCommandBuilder()

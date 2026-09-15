@@ -1,6 +1,37 @@
-const { ActionRowBuilder, ButtonBuilder, ButtonStyle, SlashCommandBuilder } = require('discord.js');
+const { ActionRowBuilder, ButtonBuilder, ButtonStyle, SlashCommandBuilder, EmbedBuilder } = require('discord.js');
 const { Post, Reply, Like } = require('../database');
-const { createMyPostDetailEmbed } = require('../utils/embeds');
+
+// 自分の投稿詳細Embed作成関数
+function createMyPostDetailEmbed(post) {
+  const baseEmbed = new EmbedBuilder()
+    .setColor(post.isPrivate ? '#FF6B6B' : '#1DA1F2')
+    .setAuthor({ name: post.username });
+
+  if (post.imageUrl) {
+    const contentEmbed = new EmbedBuilder(baseEmbed)
+      .setDescription(`**投稿ID:** ${post.id}\n\n${post.content}`)
+      .setImage(post.imageUrl)
+      .setTimestamp(post.createdAt);
+
+    const metadataEmbed = new EmbedBuilder()
+      .setColor(baseEmbed.data.color)
+      .addFields(
+        { name: 'ステータス', value: post.isPrivate ? '🔒 非公開' : '🌐 公開', inline: true }
+      );
+
+    return [contentEmbed, metadataEmbed];
+
+  } else {
+    const singleEmbed = new EmbedBuilder(baseEmbed)
+      .setDescription(`**投稿ID:** ${post.id}\n\n${post.content}`)
+      .addFields(
+        { name: 'ステータス', value: post.isPrivate ? '🔒 非公開' : '🌐 公開', inline: true }
+      )
+      .setTimestamp(post.createdAt);
+
+    return [singleEmbed];
+  }
+}
 
 module.exports = {
   data: new SlashCommandBuilder()

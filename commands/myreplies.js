@@ -1,6 +1,39 @@
-const { ActionRowBuilder, ButtonBuilder, ButtonStyle, SlashCommandBuilder } = require('discord.js');
+const { ActionRowBuilder, ButtonBuilder, ButtonStyle, SlashCommandBuilder, EmbedBuilder } = require('discord.js');
 const { Reply, Post } = require('../database');
-const { createMyReplyEmbed } = require('../utils/embeds');
+
+// 自分のリプライEmbed作成関数
+function createMyReplyEmbed(reply) {
+  const post = reply.Post; // Original post
+  if (!post) {
+    return null; // Should not happen if include: Post is used, but for safety
+  }
+
+  const statusIcon = post.isPrivate ? '🔒' : '🌐';
+  const imageIcon = post.imageUrl ? '🖼️ ' : '';
+  const originalPostContentSnippet = post.content.substring(0, 80) + (post.content.length > 80 ? '...' : '');
+
+  const replyDate = new Date(reply.createdAt);
+  const now = new Date();
+  const isToday = replyDate.toDateString() === now.toDateString();
+  const replyTimeString = isToday
+    ? `今日 ${replyDate.getHours().toString().padStart(2, '0')}:${replyDate.getMinutes().toString().padStart(2, '0')}`
+    : `${replyDate.getFullYear()}/${(replyDate.getMonth() + 1).toString().padStart(2, '0')}/${replyDate.getDate().toString().padStart(2, '0')} ${replyDate.getHours().toString().padStart(2, '0')}:${replyDate.getMinutes().toString().padStart(2, '0')}`;
+
+  const embed = new EmbedBuilder()
+    .setColor('#1DA1F2')
+    .setTitle('あなたのリプライ')
+    .setAuthor({ name: reply.username })
+    .setDescription(
+      `**リプライID:** ${reply.id}\n` +
+      `**リプライ内容:** ${reply.content}\n\n` +
+      `**元の投稿:**\n` +
+      `${statusIcon} ${imageIcon}ID: ${post.id} | ${originalPostContentSnippet}\n`
+    )
+    .setFooter({ text: `リプライ日時: ${replyTimeString}` })
+    .setTimestamp(reply.createdAt);
+
+  return embed;
+}
 
 module.exports = {
   data: new SlashCommandBuilder()
