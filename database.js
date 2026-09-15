@@ -175,8 +175,8 @@ async function initDatabase() {
   try {
     // 外部キー制約を一時的に無効化してからテーブルを再作成
     await sequelize.query('PRAGMA foreign_keys = OFF;');
-    // モデルの変更をデータベースに同期（force: trueでテーブルを再作成）
-    await sequelize.sync({ force: true });
+    // モデルの変更をデータベースに同期（alter: trueで既存データを保持しつつ変更）
+    await sequelize.sync({ alter: true });
     // 外部キー制約を再度有効化
     await sequelize.query('PRAGMA foreign_keys = ON;');
     
