@@ -22,7 +22,7 @@ module.exports = {
     .setDescription('新しい投稿を作成します'),
   longDescription: '新規投稿を作成します。\n・公開（サーバーの全員が閲覧可能）または非公開を選択可能\n・非公開の場合、「自分だけ」または指定したユーザーIDのみ閲覧可能に設定できる\n・非公開投稿は/mypostsでのみ確認可能、他ユーザーのbrowse_postsには表示されません\n・最大2000文字のテキストに加え、画像/動画URLを1つ（任意）で投稿可能\n・YouTubeなどの動画URLはDiscordの自動埋め込みで表示されます\n・公開投稿は他ユーザーからのリプライやいいねを受け取れます。',
   async execute(interaction) {
-    await interaction.deferReply({ ephemeral: true }); // deferReplyを追加
+    await interaction.deferReply({ flags: 64 }); // deferReplyを追加
 
     const row = new ActionRowBuilder()
       .addComponents(
@@ -125,6 +125,9 @@ module.exports = {
         fetchReply: true
         // components: [] // リアクションベースの確認のため、ボタンは不要
       });
+
+      console.log('Message object after editReply:', message); // 追加するログ
+      console.log('Message ID:', message ? message.id : 'No message ID'); // 追加するログ
 
       // メッセージにリアクションを追加
       await message.react('✅');
