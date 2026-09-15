@@ -156,18 +156,29 @@ Reply.belongsTo(Post, { foreignKey: 'postId' });
 
 async function initDatabase() {
   try {
-    // SQLiteの外部キーチェックを一時的に無効にする
+    // スキーマ変更とデータクリーンアップのために一時的に外部キーチェックを無効化
     await sequelize.query('PRAGMA foreign_keys = OFF;');
 
-    // モデルの変更をデータベースに同期（alter: trueでカラムの追加に対応）
+    // --- データクリーンアップ: sync前にNULLのIDがないことを確認 ---
+    // モデルが完全に同期されていない可能性があるため、生のクエリを使用してNULLのIDを持つ投稿をフェッチ
+    const [rows] = await sequelize.query('SELECT rowid FROM Posts WHERE id IS NULL;');
+    for (const row of rows) {
+        const newId = nanoid(NANOID_LENGTH);
+        await sequelize.query(`UPDATE Posts SET id = '${newId}' WHERE rowid = ${row.rowid};`);
+        console.log(`NULLのIDを持つ投稿 (rowid: ${row.rowid}) を修正しました。新しいID: ${newId}`);
+    }
+    // --- データクリーンアップ終了 ---
+
+    // モデルをデータベースと同期
     await sequelize.sync({ alter: true });
     console.log('データベースモデルがロードされました');
 
-    // 外部キーチェックを再度有効にする
-    await sequelize.query('PRAGMA foreign_keys = ON;');
   } catch (error) {
     console.error('データベースモデルのロード中にエラーが発生しました:', error);
     throw error; // エラーを再スローして、ボットの起動プロセスに伝える
+  } finally {
+    // 常に外部キーチェックを再度有効化
+    await sequelize.query('PRAGMA foreign_keys = ON;');
   }
 }
 
