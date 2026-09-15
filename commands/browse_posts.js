@@ -47,44 +47,50 @@ module.exports = {
 
     const initialPostData = await fetchAndSendPost(currentIndex);
 
-    // 前後に移動するためのナビゲーションボタンを追加
-    const navRow = new ActionRowBuilder()
-      .addComponents(
-        new ButtonBuilder()
-          .setCustomId('prev_post')
-          .setLabel('◀️ 前へ')
-          .setStyle(ButtonStyle.Secondary),
-        new ButtonBuilder()
-          .setCustomId('next_post')
-          .setLabel('次へ ▶️')
-          .setStyle(ButtonStyle.Secondary)
-      );
-
-    // 初期のコンポーネントにナビゲーションボタンを追加
-    const initialComponents = [...initialPostData.components, navRow];
-    const message = await interaction.reply({
+    await interaction.reply({
       embeds: initialPostData.embeds,
-      components: initialComponents,
-      fetchReply: true
+      components: initialPostData.components
     });
+    const message = await interaction.fetchReply();
 
-    // ボタンによるナビゲーションハンドラー（常に動作）
-    const buttonFilter = i => ['prev_post', 'next_post'].includes(i.customId) && i.user.id === interaction.user.id;
-    const buttonCollector = message.createMessageComponentCollector({ filter: buttonFilter });
+    // リアクション（矢印）によるナビゲーション
+    try {
+      await message.react('◀️');
+      await message.react('▶️');
 
-    buttonCollector.on('collect', async i => {
-      if (i.customId === 'prev_post') {
-        currentIndex = (currentIndex - 1 + posts.length) % posts.length;
-      } else if (i.customId === 'next_post') {
-        currentIndex = (currentIndex + 1) % posts.length;
-      }
+      const reactionFilter = (reaction, user) => {
+        return ['◀️', '▶️'].includes(reaction.emoji.name) && user.id === interaction.user.id;
+      };
 
-      const newPostData = await fetchAndSendPost(currentIndex);
-      const newPostComponents = [...newPostData.components, navRow];
-      await i.update({
-        embeds: newPostData.embeds,
-        components: newPostComponents
+      const reactionCollector = message.createReactionCollector({ filter: reactionFilter });
+
+      reactionCollector.on('collect', async (reaction, user) => {
+        if (reaction.emoji.name === '◀️') {
+          currentIndex = (currentIndex - 1 + posts.length) % posts.length;
+        } else if (reaction.emoji.name === '▶️') {
+          currentIndex = (currentIndex + 1) % posts.length;
+        }
+
+        const newPostData = await fetchAndSendPost(currentIndex);
+        await message.edit({
+          embeds: newPostData.embeds,
+          components: newPostData.components
+        });
+
+        reaction.users.remove(user.id).catch(() => {});
       });
-    });
+
+      reactionCollector.on('end', async () => {
+        if (message && !message.deleted) {
+          await message.reactions.removeAll().catch(() => {});
+        }
+      });
+    } catch (error) {
+      console.log('リアクションの追加に失敗しました:', error.message);
+      await interaction.followUp({
+        content: 'リアクションを追加できませんでした。ボットに「リアクションを追加」の権限があるか確認してください。',
+        flags: 64
+      });
+    }
   }
 };
