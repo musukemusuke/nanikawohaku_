@@ -43,9 +43,8 @@ module.exports = {
                     value: '各コマンドで必要な10文字IDは、以下の方法で確認できます。\n・投稿ID：`/feed`の🌐/📝/❤️の一覧に全て表示されています\n・リプライID：`/feed`の💬（自分の投稿したリプライ一覧）から確認可能、または`/reply`実行完了時のメッセージにも表示されます\n\n全てのIDは重複しない固有の文字列なので、安心して使用できます。'
                 }
             )
-            .setTimestamp()
-            .setFooter({ text: '投稿ボット', iconURL: interaction.client.user.displayAvatarURL() });
-
-        await interaction.reply({ embeds: [helpEmbed], flags: 64 }); // 64 is the flag for ephemeral
+              .setTimestamp();
+  
+          await interaction.reply({ embeds: [helpEmbed], flags: 64 }); // 64 is the flag for ephemeral
     }
 };
