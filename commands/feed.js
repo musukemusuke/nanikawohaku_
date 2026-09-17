@@ -42,7 +42,7 @@ module.exports = {
                 title = 'あなたが投稿したリプライ';
                 break;
             case 'my_likes': // 自分がいいねした投稿
-                query = `SELECT posts.* FROM posts JOIN likes ON posts.id = likes.post_id WHERE posts.guild_id = ? AND likes.user_id = ? ORDER BY posts.created_at DESC LIMIT 5`;
+                query = `SELECT posts.* FROM posts JOIN user_likes ON posts.id = user_likes.post_id WHERE posts.guild_id = ? AND user_likes.user_id = ? ORDER BY posts.created_at DESC LIMIT 5`;
                 params = [guildId, userId];
                 title = 'あなたがいいねした投稿';
                 break;
@@ -51,21 +51,22 @@ module.exports = {
         // 以降の表示処理を実行
         const posts = await db.all(query, params);
         if (posts.length === 0) {
-            await interaction.reply({ content: '該当する投稿がありませんでした。', ephemeral: true });
+            await interaction.reply({ content: '該当する投稿がありませんでした。', flags: 64 }); // ephemeral
             return;
         }
 
-        const embeds = posts.map(post => {
+        const embeds = posts.map(item => {
+            const isReply = type === 'my_replies';
             const embed = new EmbedBuilder()
-                .setTitle(post.title || '投稿')
-                .setDescription(post.content)
+                .setTitle(`${isReply ? 'リプライID' : '投稿ID'}: ${item.id}`)
+                .setDescription(item.content)
                 .setColor(0x0099FF)
-                .setTimestamp(new Date(post.created_at));
-            if (post.image_url) embed.setImage(post.image_url);
+                .setTimestamp(new Date(item.created_at));
+            if (item.image_url) embed.setImage(item.image_url);
             return embed;
         });
 
-        await interaction.reply({ embeds });
+        await interaction.reply({ embeds, flags: 64 }); // ephemeral
     },
     async handleReaction(reaction, user, originalInteraction) {
         const db = originalInteraction.client.db;
