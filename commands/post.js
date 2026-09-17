@@ -163,14 +163,15 @@ module.exports = {
             const secondActionRow = new ActionRowBuilder().addComponents(postUrlInput);
 
             modal.addComponents(firstActionRow, secondActionRow);
+            console.log('Trying to show public modal. originalInteraction valid?', !!originalInteraction, 'replied?', originalInteraction.replied, 'deferred?', originalInteraction.deferred);
             try {
                 await originalInteraction.showModal(modal); // originalInteraction を使用
+                console.log('Public modal shown successfully');
                 // モーダルが正常に表示されたらリアクションメッセージを削除
                 await reaction.message.delete();
+                console.log('Reaction message deleted');
             } catch (err) {
-                if (err.code !== 'InteractionAlreadyReplied' && err.code !== 10008) {
-                    console.error('Error showing modal in post.js:', err);
-                }
+                console.error('Error showing public modal in post.js:', err); // 常にログを出力してエラー内容を確認
             }
         } else if (reaction.emoji.name === '🔒') { // 非公開投稿
             const modal = new ModalBuilder()
@@ -202,14 +203,15 @@ module.exports = {
             const thirdActionRow = new ActionRowBuilder().addComponents(allowedUsersInput);
 
             modal.addComponents(firstActionRow, secondActionRow, thirdActionRow);
+            console.log('Trying to show private modal. originalInteraction valid?', !!originalInteraction, 'replied?', originalInteraction.replied, 'deferred?', originalInteraction.deferred);
             try {
                 await originalInteraction.showModal(modal); // originalInteraction を使用
+                console.log('Private modal shown successfully');
                 // モーダルが正常に表示されたらリアクションメッセージを削除
                 await reaction.message.delete();
+                console.log('Reaction message deleted');
             } catch (err) {
-                if (err.code !== 'InteractionAlreadyReplied' && err.code !== 10008) {
-                    console.error('Error showing private modal in post.js:', err);
-                }
+                console.error('Error showing private modal in post.js:', err); // 常にログを出力してエラー内容を確認
             }
         } else if (reaction.emoji.name === '❌') { // キャンセル
             try {
