@@ -13,8 +13,8 @@ module.exports = {
 
         const replyMessage = await interaction.reply({
             embeds: [embed], // Embedを送信
-            fetchReply: true // リアクションを追加するために必要
-        });
+            withResponse: true // リアクションを追加するために必要
+        }).then(res => res.resource?.message); // メッセージオブジェクトを取得
 
         // 最初のメッセージIDと元のインタラクションをマップに保存
         interaction.client.postInteractions.set(replyMessage.id, interaction);

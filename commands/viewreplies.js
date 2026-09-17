@@ -115,7 +115,7 @@ module.exports = {
                     });
                 };
 
-                await interaction.reply({ content: 'リプライ一覧を読み込み中...', fetchReply: true });
+                await interaction.reply({ content: 'リプライ一覧を読み込み中...', withResponse: true });
                 await displayPage(currentPage);
             });
         });

@@ -111,7 +111,7 @@ const rest = new REST({ version: '10' }).setToken(process.env.DISCORD_TOKEN);
 })();
 
 
-client.once('ready', () => {
+client.once('clientReady', () => {
     console.log('Bot is online!');
     if (!process.env.CLIENT_ID) {
         console.warn('CLIENT_ID is not set in .env. Slash commands might not be registered correctly.');

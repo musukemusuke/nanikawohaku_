@@ -85,7 +85,7 @@ module.exports = {
                 });
             };
 
-            await interaction.reply({ content: 'グローバルフィードを読み込み中...', fetchReply: true });
+            await interaction.reply({ content: 'グローバルフィードを読み込み中...', withResponse: true });
             await displayPage(currentPage);
         });
     },

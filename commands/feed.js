@@ -12,8 +12,8 @@ module.exports = {
 
         const replyMessage = await interaction.reply({
             embeds: [embed],
-            fetchReply: true
-        });
+            withResponse: true
+        }).then(res => res.resource?.message);
 
         interaction.client.feedInteractions.set(replyMessage.id, interaction);
 
