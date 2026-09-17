@@ -4,25 +4,54 @@ const { nanoid } = require('nanoid');
 module.exports = {
     data: new SlashCommandBuilder()
         .setName('post')
-        .setDescription('新しい投稿を作成します。'),
+        .setDescription('新しい投稿を作成します。')
+        .addBooleanOption(option =>
+            option.setName('private')
+                .setDescription('非公開投稿にする場合はtrueを指定してください')
+                .setRequired(false)),
     async execute(interaction) {
-        const embed = new EmbedBuilder()
-            .setTitle('投稿オプション')
-            .setDescription('投稿方法を選択してください。投稿を中止する場合は❌にリアクションしてください:\n\n🌐 公開投稿\n🔒 非公開投稿\n❌ キャンセル')
-            .setColor(0x0099FF); // Discordの青色
+        const isPrivate = interaction.options.getBoolean('private') ?? false;
+        
+        // 公開/非公開に応じたモーダルをすぐに表示
+        const modal = new ModalBuilder()
+            .setCustomId(`post_modal_${isPrivate ? 'private' : 'public'}_${interaction.id}`)
+            .setTitle(isPrivate ? '非公開投稿を作成' : '公開投稿を作成');
 
-        const replyMessage = await interaction.reply({
-            embeds: [embed], // Embedを送信
-            withResponse: true // リアクションを追加するために必要
-        }).then(res => res.resource?.message); // メッセージオブジェクトを取得
+        const postContentInput = new TextInputBuilder()
+            .setCustomId('postContent')
+            .setLabel('投稿内容（最大280文字）')
+            .setStyle(TextInputStyle.Paragraph)
+            .setRequired(true)
+            .setMaxLength(280);
 
-        // 最初のメッセージIDと元のインタラクションをマップに保存
-        interaction.client.postInteractions.set(replyMessage.id, interaction);
+        const postUrlInput = new TextInputBuilder()
+            .setCustomId('postUrl')
+            .setLabel('画像または動画のURL (任意)')
+            .setStyle(TextInputStyle.Short)
+            .setRequired(false);
 
-        // 絵文字リアクションを追加
-        await replyMessage.react('🌐'); // 公開
-        await replyMessage.react('🔒'); // 非公開
-        await replyMessage.react('❌'); // キャンセル
+        const firstActionRow = new ActionRowBuilder().addComponents(postContentInput);
+        const secondActionRow = new ActionRowBuilder().addComponents(postUrlInput);
+        
+        // 非公開の場合は追加で閲覧許可ユーザーの入力欄を追加
+        if (isPrivate) {
+            const allowedUsersInput = new TextInputBuilder()
+                .setCustomId('allowedUsers')
+                .setLabel('閲覧を許可するユーザー名 (カンマ区切り)')
+                .setStyle(TextInputStyle.Short)
+                .setRequired(false)
+                .setPlaceholder('例: ユーザー名1, ユーザー名2');
+            const thirdActionRow = new ActionRowBuilder().addComponents(allowedUsersInput);
+            modal.addComponents(firstActionRow, secondActionRow, thirdActionRow);
+        } else {
+            modal.addComponents(firstActionRow, secondActionRow);
+        }
+
+        // 元のインタラクションをマップに保存（モーダル送信後に使用）
+        interaction.client.postInteractions.set(interaction.id, interaction);
+        
+        // モーダルを表示
+        await interaction.showModal(modal);
     },
     async handleButton(interaction) {
         // customIdから元のinteractionIdを抽出
