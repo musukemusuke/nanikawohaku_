@@ -7,8 +7,8 @@ module.exports = {
     async execute(interaction) {
         const helpEmbed = new EmbedBuilder()
             .setColor(0x0099ff)
-            .setTitle('📖 プライベート掲示板ボット ヘルプ')
-            .setDescription('Discord内で使える小さなTwitter風掲示板ボットの使い方です。全てのコマンドはエフェメラル（自分だけに表示）されます。')
+            .setTitle('📖 コマンド一覧・使い方')
+            .setDescription('このサーバーで使える投稿ボットの使い方です。コマンドの実行結果は基本的に自分だけに表示されます。')
             .addFields(
                 {
                     name: '📝 /post - 新規投稿作成',
@@ -44,7 +44,7 @@ module.exports = {
                 }
             )
             .setTimestamp()
-            .setFooter({ text: 'プライベート掲示板ボット', iconURL: interaction.client.user.displayAvatarURL() });
+            .setFooter({ iconURL: interaction.client.user.displayAvatarURL() });
 
         await interaction.reply({ embeds: [helpEmbed], ephemeral: true });
     }
