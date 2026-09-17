@@ -1,0 +1,171 @@
+name: Run Discord Bot
+
+on:
+  push:
+    branches: [ main ]
+  schedule:
+    # 5分ごとにチェックしてボットが落ちていたら再起動
+    - cron: '*/5 * * * *'
+  workflow_dispatch: # 手動で起動できるボタンを追加
+
+jobs:
+  run-bot:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # リポジトリへの書き込み権限を付与
+    
+    # 同じコミットに対して同時に複数のワークフローが実行されないようにする
+    concurrency: 
+      group: bot-${{ github.ref }}
+      cancel-in-progress: true
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+        fetch-depth: 0
+
+    - name: Set timezone to Japan
+      run: |
+        sudo timedatectl set-timezone Asia/Tokyo
+        date
+
+    # Node.js環境をセットアップ
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '24.x'
+
+    # ボットに必要な部品のインストール + jqをインストール
+    - name: Install dependencies
+      run: |
+        npm install
+        sudo apt-get update && sudo apt-get install -y jq
+
+    # dataディレクトリを作成して既存のデータを保護
+    - name: Setup data directory
+      run: |
+        mkdir -p logs temp data
+        chmod 755 logs temp data
+
+    - name: Preserve existing data
+      run: |
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+        
+        # 現在のposts.dbをdataディレクトリに移行（初回のみ）
+        if [ -f "./posts.db" ] && [ ! -f "data/database.sqlite" ]; then
+          echo "📊 posts.dbをdata/database.sqliteに移行します"
+          cp ./posts.db data/database.sqlite
+        fi
+        
+        # 既存のデータを保護（上書きしない）
+        if [ -d "data" ]; then
+          echo "✅ 既存のdataディレクトリを保護します"
+          if [ -f data/database.sqlite ]; then
+            echo "📊 データベースサイズ: $(du -sh data/database.sqlite | cut -f1)"
+          fi
+        else
+          echo "⚠️ dataディレクトリが見つかりません"
+          echo "🔄 GitHubから取得を試みます..."
+          git fetch origin main
+          git checkout origin/main -- data/ 2>/dev/null || echo "⚠️ GitHubからの取得に失敗しました"
+          
+          if [ -d "data" ]; then
+            echo "✅ GitHubからdataディレクトリを取得しました"
+          else
+            echo "📝 新規に空のデータディレクトリを作成します"
+            mkdir -p data
+          fi
+        fi
+
+    - name: Check if bot is running
+      id: check_bot
+      env:
+        DISCORD_TOKEN: ${{ secrets.DISCORD_TOKEN }}
+        CLIENT_ID: ${{ secrets.CLIENT_ID }}
+      run: |
+        # 常にボットを起動する（スキップしない）
+        echo "強制的にボットを起動します"
+        echo "RUN_BOT=true" >> $GITHUB_ENV
+
+    - name: Configure Git
+      if: always()
+      run: |
+        git config user.email "actions-user@users.noreply.github.com"
+        git config user.name "actions-user"
+
+    - name: Create commit to trigger actions-user
+      if: always()
+      run: |
+        # main.ymlのタイムスタンプを更新してコミット
+        touch .github/workflows/main.yml
+        git add .github/workflows/main.yml
+        git commit -m "Trigger actions-user to appear in contributors [skip ci]" || echo "No changes to commit"
+        git push
+
+    - name: Start Bot
+      if: ${{ env.RUN_BOT == 'true' }}
+      env:
+        DISCORD_TOKEN: ${{ secrets.DISCORD_TOKEN }}
+        CLIENT_ID: ${{ secrets.CLIENT_ID }}
+        NODE_DEBUG: ""
+        NODE_ENV: production
+      run: |
+        # 既存のプロセスを終了
+        pkill -f "node.*index.js" || true
+        
+        # dataディレクトリのdatabase.sqliteをルートのposts.dbにコピー（互換性維持）
+        if [ -f data/database.sqlite ]; then
+          cp data/database.sqlite ./posts.db
+          echo "✅ データベースをposts.dbにコピーしました"
+        fi
+        
+        # ボットを起動（ログはGitHub ActionsのStart Botステップに直接出力）
+        mkdir -p temp
+        node index.js &
+        echo $! > temp/bot.pid
+        
+        # プロセスが実行中か確認
+        if ! ps -p $(cat temp/bot.pid) > /dev/null; then
+          echo "ボットの起動に失敗しました"
+          exit 1
+        fi
+        
+        echo "ボットが正常に起動しました"
+        
+        # ボットの実行中、定期的にデータベースをコミットし続ける
+        while true; do
+          # ボットがまだ実行中か確認
+          if ! ps -p $(cat temp/bot.pid) > /dev/null; then
+            echo "ボットが終了しました。再起動します..."
+            # 再起動前に最新のデータベースをコピー
+            cp ./posts.db data/database.sqlite
+            # 再起動（ログはGitHub ActionsのStart Botステップに直接出力）
+            node index.js &
+            echo $! > temp/bot.pid
+            sleep 10
+          fi
+          
+          # 5分ごとにデータベースをコミット
+          sleep 300
+          # 実行中に更新されたposts.dbをdataディレクトリに同期
+          cp ./posts.db data/database.sqlite
+          git status
+          git add data/database.sqlite
+          git commit -m "Auto-update database.sqlite [skip ci]" || echo "No changes to commit"
+          git push
+        done
+
+    - name: Commit database changes (最終実行)
+      if: always() # ボットがクラッシュしても必ず実行
+      run: |
+        # 最後にも最新のデータベースをコピー
+        if [ -f ./posts.db ]; then
+          cp ./posts.db data/database.sqlite
+        fi
+        git status
+        git add data/database.sqlite
+        git commit -m "Final update database.sqlite from bot run" || echo "No changes to commit"
+        git push

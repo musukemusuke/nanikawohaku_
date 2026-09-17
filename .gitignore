@@ -1,0 +1,17 @@
+# Dependencies
+node_modules/
+
+# SQLiteデータベース
+*.db
+*.db-journal
+
+# 環境変数ファイル
+.env
+
+# ログファイル
+logs/
+*.log
+
+# 一時ファイル
+*.tmp
+*.temp
