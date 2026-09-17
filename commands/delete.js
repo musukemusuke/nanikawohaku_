@@ -125,6 +125,3 @@ module.exports = {
         await interaction.reply({ content: results.join('\n'), flags: 64 }); // ephemeral
     }
 };
-            }
-    }
-};
