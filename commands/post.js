@@ -5,12 +5,17 @@ module.exports = {
     data: new SlashCommandBuilder()
         .setName('post')
         .setDescription('新しい投稿を作成します。')
-        .addBooleanOption(option =>
-            option.setName('private')
-                .setDescription('非公開投稿にする場合はtrueを指定してください')
-                .setRequired(false)),
+        .addStringOption(option =>
+            option.setName('visibility')
+                .setDescription('投稿の公開設定を選択してください')
+                .setRequired(true)
+                .addChoices(
+                    { name: '🌐 公開投稿', value: 'public' },
+                    { name: '🔒 非公開投稿', value: 'private' }
+                )),
     async execute(interaction) {
-        const isPrivate = interaction.options.getBoolean('private') ?? false;
+        const visibility = interaction.options.getString('visibility');
+        const isPrivate = visibility === 'private';
         
         // 公開/非公開に応じたモーダルをすぐに表示
         const modal = new ModalBuilder()
