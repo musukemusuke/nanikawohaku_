@@ -92,7 +92,7 @@ module.exports = {
                             .setTimestamp(new Date(row.created_at));
                     } else { // 通常の投稿の場合（postsテーブルの行）
                         rowEmbed = new EmbedBuilder()
-                            .setAuthor({ name: `${displayName} (@${row.author_username})` })
+                            .setAuthor({ name: `${displayName} (${row.author_username})` })
                             .setDescription(`**${row.content}**`)
                             .setTimestamp(new Date(row.created_at))
                             .setFooter({ text: `投稿ID: ${row.id} | いいね: ${row.likes}` });
@@ -205,7 +205,7 @@ module.exports = {
                 const description = row.image_url ? `${row.content}\n${row.image_url}` : row.content;
                 rowEmbed = new EmbedBuilder()
                     .setTitle(`投稿ID: ${row.id}`)
-                    .setAuthor({ name: `${displayName} (@${row.author_username})` })
+                    .setAuthor({ name: `${displayName} (${row.author_username})` })
                     .setDescription(description)
                     .setColor(0x00FF00)
                     .setTimestamp(new Date(row.created_at))
