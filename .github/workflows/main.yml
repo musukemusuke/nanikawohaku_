@@ -75,9 +75,34 @@ jobs:
         DISCORD_TOKEN: ${{ secrets.DISCORD_TOKEN }}
         CLIENT_ID: ${{ secrets.CLIENT_ID }}
       run: |
-        # 常にボットを起動する（スキップしない）
+        # 常にボットを起動する
         echo "強制的にボットを起動します"
-        echo "RUN_BOT=true" >> $GITHUB_ENV
+        
+        # DBファイルの存在を確認（posts.dbではなくdatabase.sqliteを使用）
+        if [ ! -f "./database.sqlite" ]; then
+          echo "⚠️ database.sqliteが存在しないため、新規作成します"
+          touch database.sqlite
+          chmod 644 database.sqlite
+        fi
+        
+        # sqlite3のバイナリを事前にインストールしてセグフォ回避
+        npm rebuild sqlite3 --build-from-source
+        
+        # セグフォ回避のための環境変数を設定
+        export NODE_OPTIONS="--trace-warnings"
+        node index.js &
+        BOT_PID=$!
+        
+        # 15秒待機してプロセスが落ちていないか確認
+        sleep 15
+        if ps -p $BOT_PID > /dev/null; then
+          echo "✅ ボットが正常に起動しました（PID: $BOT_PID）"
+          # バックグラウンドで実行を継続
+          wait $BOT_PID
+        else
+          echo "❌ ボットの起動に失敗しました（プロセスが終了しています）"
+          exit 1
+        fi
 
     - name: Configure Git
       if: always()

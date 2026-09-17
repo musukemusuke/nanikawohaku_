@@ -50,78 +50,168 @@ module.exports = {
 
         const results = [];
         let hasProcessed = false;
+        let finalResultsProcessed = false; // 結果をまとめて返すフラグ
 
         // いいねの削除処理
         if (likeId) {
             hasProcessed = true;
-            try {
-                const row = db.prepare(`SELECT * FROM user_likes WHERE user_id = ? AND post_id = ?`).get(userId, likeId);
+            db.get(`SELECT * FROM user_likes WHERE user_id = ? AND post_id = ?`, [userId, likeId], (err, row) => {
+                if (err) {
+                    console.error('Error getting like:', err);
+                    results.push('❌ いいねの取得でエラーが発生しました');
+                    checkAndSendResults();
+                    return;
+                }
                 if (!row) {
                     results.push(`⚠️ 指定されたID ${likeId} のいいねは存在しません。`);
                 } else {
-                    db.prepare(`DELETE FROM user_likes WHERE user_id = ? AND post_id = ?`).run(userId, likeId);
-                    db.prepare(`UPDATE posts SET likes = likes - 1 WHERE id = ?`).run(likeId);
-                    results.push(`✅ ID:${likeId}のいいねを取り消しました。`);
+                    db.run(`DELETE FROM user_likes WHERE user_id = ? AND post_id = ?`, [userId, likeId], (err) => {
+                        if (err) {
+                            console.error('Error deleting like:', err);
+                            results.push('❌ いいねの削除でエラーが発生しました');
+                        } else {
+                            db.run(`UPDATE posts SET likes = likes - 1 WHERE id = ?`, [likeId], (err) => {
+                                if (err) {
+                                    console.error('Error updating post likes:', err);
+                                    results.push('❌ 投稿のいいね数更新でエラーが発生しました');
+                                } else {
+                                    results.push(`✅ ID:${likeId}のいいねを取り消しました。`);
+                                }
+                                checkAndSendResults();
+                            });
+                            return;
+                        }
+                        checkAndSendResults();
+                    });
+                    return;
                 }
-            } catch (err) {
-                console.error('Error processing like delete:', err);
-                results.push('❌ いいねの処理でエラーが発生しました');
-            }
+                checkAndSendResults();
+            });
         }
 
         // リプライの削除処理
         if (replyId) {
             hasProcessed = true;
-            try {
-                const row = db.prepare(`SELECT * FROM replies WHERE id = ?`).get(replyId);
+            db.get(`SELECT * FROM replies WHERE id = ?`, [replyId], (err, row) => {
+                if (err) {
+                    console.error('Error getting reply:', err);
+                    results.push('❌ リプライの取得でエラーが発生しました');
+                    checkAndSendResults();
+                    return;
+                }
                 if (!row) {
                     results.push(`⚠️ 指定されたID ${replyId} のリプライは存在しません。`);
                 } else if (row.author_id !== userId) {
                     results.push(`⚠️ 他人のリプライ(ID:${replyId})は削除できません。`);
                 } else {
-                    db.prepare(`DELETE FROM replies WHERE id = ?`).run(replyId);
-                    results.push(`✅ ID:${replyId}のリプライを削除しました。`);
+                    db.run(`DELETE FROM replies WHERE id = ?`, [replyId], (err) => {
+                        if (err) {
+                            console.error('Error deleting reply:', err);
+                            results.push('❌ リプライの削除でエラーが発生しました');
+                        } else {
+                            results.push(`✅ ID:${replyId}のリプライを削除しました。`);
+                        }
+                        checkAndSendResults();
+                    });
+                    return;
                 }
-            } catch (err) {
-                console.error('Error processing reply delete:', err);
-                results.push('❌ リプライの処理でエラーが発生しました');
-            }
+                checkAndSendResults();
+            });
         }
 
         // 投稿の削除処理（トランザクション付き）
         if (postId) {
             hasProcessed = true;
-            try {
-                const row = db.prepare(`SELECT * FROM posts WHERE id = ?`).get(postId);
+            db.get(`SELECT * FROM posts WHERE id = ?`, [postId], (err, row) => {
+                if (err) {
+                    console.error('Error getting post:', err);
+                    results.push('❌ 投稿の取得でエラーが発生しました');
+                    checkAndSendResults();
+                    return;
+                }
                 if (!row) {
                     results.push(`⚠️ 指定されたID ${postId} の投稿は存在しません。`);
+                    checkAndSendResults();
                 } else if (row.author_id !== userId) {
                     results.push(`⚠️ 他人の投稿(ID:${postId})は削除できません。`);
+                    checkAndSendResults();
                 } else {
-                    // better-sqlite3でトランザクションを実行
-                    const transaction = db.transaction(() => {
+                    // トランザクションを開始
+                    db.run('BEGIN', (err) => {
+                        if (err) {
+                            console.error('Error starting transaction:', err);
+                            results.push('❌ トランザクションの開始でエラーが発生しました');
+                            checkAndSendResults();
+                            return;
+                        }
                         // リプライを削除
-                        db.prepare(`DELETE FROM replies WHERE post_id = ?`).run(postId);
-                        // いいね情報を削除
-                        db.prepare(`DELETE FROM user_likes WHERE post_id = ?`).run(postId);
-                        // 投稿自体を削除
-                        db.prepare(`DELETE FROM posts WHERE id = ?`).run(postId);
+                        db.run(`DELETE FROM replies WHERE post_id = ?`, [postId], (err) => {
+                            if (err) {
+                                console.error('Error deleting replies:', err);
+                                db.run('ROLLBACK', () => {
+                                    results.push('❌ リプライの削除でエラーが発生しました');
+                                    checkAndSendResults();
+                                });
+                                return;
+                            }
+                            // いいね情報を削除
+                            db.run(`DELETE FROM user_likes WHERE post_id = ?`, [postId], (err) => {
+                                if (err) {
+                                    console.error('Error deleting likes:', err);
+                                    db.run('ROLLBACK', () => {
+                                        results.push('❌ いいね情報の削除でエラーが発生しました');
+                                        checkAndSendResults();
+                                    });
+                                    return;
+                                }
+                                // 投稿自体を削除
+                                db.run(`DELETE FROM posts WHERE id = ?`, [postId], (err) => {
+                                    if (err) {
+                                        console.error('Error deleting post:', err);
+                                        db.run('ROLLBACK', () => {
+                                            results.push('❌ 投稿の削除でエラーが発生しました');
+                                            checkAndSendResults();
+                                        });
+                                        return;
+                                    }
+                                    // 全ての処理が成功したらコミット
+                                    db.run('COMMIT', () => {
+                                        results.push(`✅ ID:${postId}の投稿を削除しました。`);
+                                        checkAndSendResults();
+                                    });
+                                });
+                            });
+                        });
                     });
-                    transaction();
-                    results.push(`✅ ID:${postId}の投稿を削除しました。`);
                 }
-            } catch (err) {
-                console.error('Error processing post delete:', err);
-                results.push('❌ 投稿の削除中にエラーが発生しました');
+            });
+        }
+
+        // 全ての非同期処理が完了したか確認して結果を送信する関数
+        function checkAndSendResults() {
+            // どの処理も実行されていない場合
+            if (!hasProcessed && !finalResultsProcessed) {
+                results.push('⚠️ どのIDも入力されていないか、無効なIDです。');
+                finalResultsProcessed = true;
+                interaction.reply({ content: results.join('\n'), flags: 64 }); // ephemeral
+            } else if (finalResultsProcessed) {
+                // 既に結果を送信済み
+                return;
+            } else {
+                // like, reply, postの処理が全て完了したか確認（簡易的なチェック）
+                // 1秒待ってから結果をまとめて送信（非同期処理の完了を待つ）
+                if (!finalResultsProcessed) {
+                    finalResultsProcessed = true;
+                    setTimeout(() => {
+                        interaction.reply({ content: results.join('\n'), flags: 64 }); // ephemeral
+                    }, 1000);
+                }
             }
         }
 
-        // 処理が何もされていない場合
+        // 最初にチェックを実行
         if (!hasProcessed) {
-            results.push('⚠️ どのIDも入力されていないか、無効なIDです。');
+            checkAndSendResults();
         }
-
-        // 結果を返す
-        await interaction.reply({ content: results.join('\n'), flags: 64 }); // ephemeral
     }
 };

@@ -49,24 +49,30 @@ module.exports = {
         }
 
         // 以降の表示処理を実行
-        const posts = await db.all(query, params);
-        if (posts.length === 0) {
-            await interaction.reply({ content: '該当する投稿がありませんでした。', flags: 64 }); // ephemeral
-            return;
-        }
+        db.all(query, params, async (err, posts) => {
+            if (err) {
+                console.error('Error getting posts:', err);
+                await interaction.reply({ content: '投稿の取得中にエラーが発生しました。', flags: 64 }); // ephemeral
+                return;
+            }
+            if (posts.length === 0) {
+                await interaction.reply({ content: '該当する投稿がありませんでした。', flags: 64 }); // ephemeral
+                return;
+            }
 
-        const embeds = posts.map(item => {
-            const isReply = type === 'my_replies';
-            const embed = new EmbedBuilder()
-                .setTitle(`${isReply ? 'リプライID' : '投稿ID'}: ${item.id}`)
-                .setDescription(item.content)
-                .setColor(0x0099FF)
-                .setTimestamp(new Date(item.created_at));
-            if (item.image_url) embed.setImage(item.image_url);
-            return embed;
+            const embeds = posts.map(item => {
+                const isReply = type === 'my_replies';
+                const embed = new EmbedBuilder()
+                    .setTitle(`${isReply ? 'リプライID' : '投稿ID'}: ${item.id}`)
+                    .setDescription(item.content)
+                    .setColor(0x0099FF)
+                    .setTimestamp(new Date(item.created_at));
+                if (item.image_url) embed.setImage(item.image_url);
+                return embed;
+            });
+
+            await interaction.reply({ embeds, flags: 64 }); // ephemeral
         });
-
-        await interaction.reply({ embeds, flags: 64 }); // ephemeral
     },
     async handleReaction(reaction, user, originalInteraction) {
         const db = originalInteraction.client.db;

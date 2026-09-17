@@ -22,9 +22,9 @@ client.pageInteractions = new Map(); // /feed のページングインタラク�
 const sqlite3 = require('sqlite3').verbose();
 
 // データベースの初期化と接続
-const db = new sqlite3.Database('./database.sqlite', sqlite3.OPEN_READWRITE | sqlite3.OPEN_CREATE, (err) => {
+const db = new sqlite3.Database('./database.sqlite', (err) => {
     if (err) {
-        console.error('Error connecting to database:', err.message);
+        console.error('Database connection error:', err.message);
     } else {
         console.log('Connected to the SQLite database.');
         // テーブルが存在しない場合は作成
@@ -43,12 +43,6 @@ const db = new sqlite3.Database('./database.sqlite', sqlite3.OPEN_READWRITE | sq
             created_at TEXT NOT NULL,
             likes INTEGER DEFAULT 0
         )`);
-        // 既存のテーブルにguild_nameカラムを追加（存在しない場合）
-        db.run(`ALTER TABLE posts ADD COLUMN IF NOT EXISTS guild_name TEXT`, (err) => {
-            if (err && !err.message.includes('duplicate column name')) {
-                console.log('guild_nameカラム追加完了');
-            }
-        });
         db.run(`CREATE TABLE IF NOT EXISTS replies (
             id TEXT PRIMARY KEY,
             post_id TEXT NOT NULL,
@@ -58,13 +52,20 @@ const db = new sqlite3.Database('./database.sqlite', sqlite3.OPEN_READWRITE | sq
             created_at TEXT NOT NULL,
             FOREIGN KEY (post_id) REFERENCES posts(id)
         )`);
-        // 新しい user_likes テーブルを追加
         db.run(`CREATE TABLE IF NOT EXISTS user_likes (
             user_id TEXT NOT NULL,
             post_id TEXT NOT NULL,
             PRIMARY KEY (user_id, post_id),
             FOREIGN KEY (post_id) REFERENCES posts(id)
         )`);
+        // 既存のテーブルにguild_nameカラムを追加（存在しない場合）
+        db.run(`ALTER TABLE posts ADD COLUMN IF NOT EXISTS guild_name TEXT`, (err) => {
+            if (err && !err.message.includes('duplicate column name')) {
+                console.error('Error adding guild_name column:', err);
+            } else {
+                console.log('guild_nameカラム追加完了');
+            }
+        });
     }
 });
 

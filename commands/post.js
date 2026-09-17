@@ -97,20 +97,21 @@ module.exports = {
             const channelId = originalInteraction.channel.id; // originalInteractionから取得
             const createdAt = new Date().toISOString();
 
-            db.run(`INSERT INTO posts (id, author_id, author_username, guild_id, guild_name, channel_id, content, image_url, is_private, allowed_users, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-                [postId, authorId, authorUsername, guildId, guildName, channelId, postContent, postUrl, isPrivate ? 1 : 0, allowedUsers, createdAt],
-                function(err) {
-                    if (err) {
-                        console.error('Error inserting post into database:', err.message);
-                        interaction.update({ content: '投稿の保存中にエラーが発生しました。', components: [] });
-                        return;
-                    }
-                    console.log(`Post ${postId} saved to database.`);
-                    interaction.update({ content: `投稿が完了しました！投稿ID: \`${postId}\`\n(この投稿は /feed コマンドで表示されます)`, components: [] });
-                    // 投稿プロセス完了後、マップから削除
-                    interaction.client.postInteractions.delete(originalInteraction.id);
+            // 投稿データをデータベースに保存
+            const query = `INSERT INTO posts (id, author_id, author_username, guild_id, guild_name, channel_id, content, image_url, is_private, allowed_users, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+            const params = [postId, authorId, authorUsername, guildId, guildName, channelId, postContent, postUrl, isPrivate ? 1 : 0, allowedUsers, createdAt];
+            
+            db.run(query, params, async function(err) {
+                if (err) {
+                    console.error('Error inserting post into database:', err.message);
+                    await interaction.update({ content: '投稿の保存中にエラーが発生しました。', components: [] });
+                    return;
                 }
-            );
+                console.log(`Post ${postId} saved to database.`);
+                await interaction.update({ content: `投稿が完了しました！投稿ID: \`${postId}\`\n(この投稿は /feed コマンドで表示されます)`, components: [] });
+                // 投稿プロセス完了後、マップから削除
+                interaction.client.postInteractions.delete(originalInteraction.id);
+            });
         } else if (action === 'confirm' && subAction === 'post' && type === 'no') {
             await interaction.update({ content: '投稿をキャンセルしました。', components: [] });
             // 投稿プロセスキャンセル後、マップから削除
@@ -126,7 +127,7 @@ module.exports = {
         const originalInteraction = interaction.client.postInteractions.get(originalInteractionId);
 
         if (!originalInteraction) {
-            await interaction.reply({ content: 'この投稿プロセスは無効になりました。', ephemeral: true });
+            await interaction.reply({ content: 'この投稿プロセスは無効になりました。', flags: 64 });
             return;
         }
 
