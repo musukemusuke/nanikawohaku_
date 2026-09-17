@@ -165,7 +165,7 @@ module.exports = {
             await interaction.reply({
                 embeds: [confirmEmbed], // Embedを送信
                 components: [row],
-                ephemeral: true, // 確認メッセージはエフェメラル
+                flags: 64, // 確認メッセージはエフェメラル
             });
         }
     },

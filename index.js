@@ -133,9 +133,9 @@ client.on('interactionCreate', async interaction => {
         } catch (error) {
             console.error(error);
             if (interaction.replied || interaction.deferred) {
-                await interaction.followUp({ content: 'コマンドの実行中にエラーが発生しました！', ephemeral: true });
+                await interaction.followUp({ content: 'コマンドの実行中にエラーが発生しました！', flags: 64 });
             } else {
-                await interaction.reply({ content: 'コマンドの実行中にエラーが発生しました！', ephemeral: true });
+                await interaction.reply({ content: 'コマンドの実行中にエラーが発生しました！', flags: 64 });
             }
         }
     } else if (interaction.isButton()) {
@@ -149,7 +149,7 @@ client.on('interactionCreate', async interaction => {
                     await command.handleButton(interaction);
                 } catch (error) {
                     console.error(error);
-                    await interaction.reply({ content: 'ボタンの処理中にエラーが発生しました！', ephemeral: true });
+                    await interaction.reply({ content: 'ボタンの処理中にエラーが発生しました！', flags: 64 });
                 }
             }
         } else if (customId.startsWith('prev_page_') || customId.startsWith('next_page_')) {
@@ -160,7 +160,7 @@ client.on('interactionCreate', async interaction => {
                     await command.handlePageButton(interaction);
                 } catch (error) {
                     console.error(error);
-                    await interaction.reply({ content: 'ページ移動の処理中にエラーが発生しました！', ephemeral: true });
+                    await interaction.reply({ content: 'ページ移動の処理中にエラーが発生しました！', flags: 64 });
                 }
             }
         }
@@ -178,7 +178,7 @@ client.on('interactionCreate', async interaction => {
                 await command.handleModalSubmit(interaction);
             } catch (error) {
                 console.error(error);
-                await interaction.reply({ content: 'モーダルの処理中にエラーが発生しました！', ephemeral: true });
+                await interaction.reply({ content: 'モーダルの処理中にエラーが発生しました！', flags: 64 });
             }
         }
     } else {

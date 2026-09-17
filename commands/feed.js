@@ -239,7 +239,7 @@ module.exports = {
         const pageData = interaction.client.pageInteractions.get(pageMessageId);
         
         if (!pageData || interaction.user.id !== pageData.userId) {
-            await interaction.reply({ content: 'この操作はできません。', ephemeral: true });
+            await interaction.reply({ content: 'この操作はできません。', flags: 64 });
             return;
         }
 
@@ -256,7 +256,7 @@ module.exports = {
         } else if (action === 'prev' && currentPage > 0) {
             currentPage--;
         } else {
-            await interaction.reply({ content: 'これ以上ページを移動できません。', ephemeral: true });
+            await interaction.reply({ content: 'これ以上ページを移動できません。', flags: 64 });
             return;
         }
 

@@ -10,12 +10,12 @@ module.exports = {
         db.all(`SELECT * FROM posts WHERE is_private = 0 ORDER BY created_at DESC LIMIT 50`, async (err, rows) => {
             if (err) {
                 console.error('Error fetching global posts:', err.message);
-                await interaction.reply({ content: 'グローバルフィードの取得中にエラーが発生しました。', ephemeral: true });
+                await interaction.reply({ content: 'グローバルフィードの取得中にエラーが発生しました。', flags: 64 });
                 return;
             }
 
             if (rows.length === 0) {
-                await interaction.reply({ content: 'まだ公開投稿がありません。', ephemeral: true });
+                await interaction.reply({ content: 'まだ公開投稿がありません。', flags: 64 });
                 return;
             }
 
@@ -94,7 +94,7 @@ module.exports = {
         const pageData = interaction.client.pageInteractions.get(pageMessageId);
         
         if (!pageData || interaction.user.id !== pageData.userId) {
-            await interaction.reply({ content: 'この操作はできません。', ephemeral: true });
+            await interaction.reply({ content: 'この操作はできません。', flags: 64 });
             return;
         }
 
@@ -109,7 +109,7 @@ module.exports = {
         } else if (action === 'prev' && currentPage > 0) {
             currentPage--;
         } else {
-            await interaction.reply({ content: 'これ以上ページを移動できません。', ephemeral: true });
+            await interaction.reply({ content: 'これ以上ページを移動できません。', flags: 64 });
             return;
         }
 
