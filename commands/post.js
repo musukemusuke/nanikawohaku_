@@ -10,8 +10,8 @@ module.exports = {
                 .setDescription('投稿の公開設定を選択してください')
                 .setRequired(true)
                 .addChoices(
-                    { name: '🌐 公開投稿', value: 'public' },
-                    { name: '🔒 非公開投稿', value: 'private' }
+                    { name: '🌐', value: 'public' },
+                    { name: '🔒', value: 'private' }
                 )),
     async execute(interaction) {
         const visibility = interaction.options.getString('visibility');
