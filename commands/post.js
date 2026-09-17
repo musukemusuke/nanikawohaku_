@@ -166,7 +166,13 @@ module.exports = {
             const secondActionRow = new ActionRowBuilder().addComponents(postUrlInput);
 
             modal.addComponents(firstActionRow, secondActionRow);
-            await originalInteraction.showModal(modal); // originalInteraction を使用
+            try {
+                await originalInteraction.showModal(modal); // originalInteraction を使用
+            } catch (err) {
+                if (err.code !== 'InteractionAlreadyReplied' && err.code !== 10008) {
+                    console.error('Error showing modal in post.js:', err);
+                }
+            }
         } else if (reaction.emoji.name === '🔒') { // 非公開投稿
             // リアクションメッセージを削除してからモーダルを表示
             await reaction.message.delete();
@@ -200,7 +206,13 @@ module.exports = {
             const thirdActionRow = new ActionRowBuilder().addComponents(allowedUsersInput);
 
             modal.addComponents(firstActionRow, secondActionRow, thirdActionRow);
-            await originalInteraction.showModal(modal); // originalInteraction を使用
+            try {
+                await originalInteraction.showModal(modal); // originalInteraction を使用
+            } catch (err) {
+                if (err.code !== 'InteractionAlreadyReplied' && err.code !== 10008) {
+                    console.error('Error showing private modal in post.js:', err);
+                }
+            }
         } else if (reaction.emoji.name === '❌') { // キャンセル
             try {
                 await originalInteraction.editReply({ content: '投稿作成をキャンセルしました。', components: [] }); // originalInteraction を使用
