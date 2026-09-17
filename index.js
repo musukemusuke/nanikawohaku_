@@ -61,7 +61,7 @@ const db = new sqlite3.Database('./database.sqlite', (err) => {
                 FOREIGN KEY (post_id) REFERENCES posts(id)
             )`);
             // 既存のテーブルにguild_nameカラムを追加（存在しない場合）
-            db.run(`ALTER TABLE posts ADD COLUMN IF NOT EXISTS guild_name TEXT`, (err) => {
+            db.run(`ALTER TABLE posts ADD COLUMN guild_name TEXT`, (err) => {
                 if (err && !err.message.includes('duplicate column name')) {
                     console.error('Error adding guild_name column:', err);
                 } else {
