@@ -69,15 +69,18 @@ jobs:
           echo "⚠️ 既存のデータベースが見つからないため、新規に作成されます"
         fi
 
-    - name: Check if bot is running
-      id: check_bot
+    - name: Start Bot and Configure Git
+      id: start_bot
       env:
         DISCORD_TOKEN: ${{ secrets.DISCORD_TOKEN }}
         CLIENT_ID: ${{ secrets.CLIENT_ID }}
       run: |
-        # 常にボットを起動する
-        echo "強制的にボットを起動します"
+        echo "ボットを起動し、Gitを設定します"
         
+        # Git設定
+        git config user.email "actions-user@users.noreply.github.com"
+        git config user.name "actions-user"
+
         # DBファイルの存在を確認（posts.dbではなくdatabase.sqliteを使用）
         if [ ! -f "./database.sqlite" ]; then
           echo "⚠️ database.sqliteが存在しないため、新規作成します"
@@ -98,17 +101,10 @@ jobs:
         if ps -p $BOT_PID > /dev/null; then
           echo "✅ ボットが正常に起動しました（PID: $BOT_PID）"
           # バックグラウンドで実行を継続
-          wait $BOT_PID
         else
-          echo "❌ ボットの起動に失敗しました（プロセスが終了しています）"
+          echo "❌ ボットの起動に失敗しました"
           exit 1
         fi
-
-    - name: Configure Git
-      if: always()
-      run: |
-        git config user.email "actions-user@users.noreply.github.com"
-        git config user.name "actions-user"
 
     - name: Save database after run
       if: always()
