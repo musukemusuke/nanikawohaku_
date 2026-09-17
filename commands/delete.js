@@ -75,7 +75,7 @@ module.exports = {
                                     console.error('Error updating post likes:', err);
                                     results.push('❌ 投稿のいいね数更新でエラーが発生しました');
                                 } else {
-                                    results.push(`✅ ID:${likeId}のいいねを取り消しました。`);
+                                    results.push(`ID:${likeId}のいいねを取り消しました。`);
                                 }
                                 checkAndSendResults();
                             });

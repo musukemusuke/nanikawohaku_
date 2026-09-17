@@ -214,7 +214,7 @@ module.exports = {
                      // はい（投稿実行）の場合 → ここで初めてDBに保存する
                      console.log('保存するpostDataの中身:', postData); // デバッグ用ログ追加
                      const { nanoid } = await import('nanoid');
-                     const postId = nanoid();
+                     const postId = nanoid(10); // 投稿IDを10文字で生成
                      const db = interaction.client.db;
                      
                      const is_private = postData.isPrivate ? 1 : 0;
@@ -234,7 +234,7 @@ module.exports = {
                                  return;
                              }
                              // 投稿成功メッセージ
-                             await interaction.editReply({ content: `✅ 投稿が完了しました！投稿ID: ${postId}`, components: [] });
+                             await interaction.editReply({ content: `投稿が完了しました！投稿ID: ${postId}`, components: [] });
                              interaction.client.postInteractions.delete(originalInteractionId);
                          }
                      );
