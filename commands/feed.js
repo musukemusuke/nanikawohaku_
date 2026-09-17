@@ -49,193 +49,106 @@ module.exports = {
         }
 
         // 以降の表示処理を実行
-        db.all(query, params, async (err, posts) => {
+        db.all(query, params, async (err, allPosts) => {
             if (err) {
                 console.error('Error getting posts:', err);
                 await interaction.reply({ content: '投稿の取得中にエラーが発生しました。', flags: 64 }); // ephemeral
                 return;
             }
-            console.log('feedで取得したposts:', posts); // デバッグ用ログ追加
-            if (posts.length === 0) {
+            console.log('feedで取得したposts:', allPosts); // デバッグ用ログ追加
+            if (allPosts.length === 0) {
                 await interaction.reply({ content: '該当する投稿がありませんでした。', flags: 64 }); // ephemeral
-                return;
-            }
-
-            const embeds = await Promise.all(posts.map(async item => {
-                const isReply = type === 'my_replies';
-                const member = await interaction.guild.members.fetch(item.author_id).catch(() => null);
-                const displayName = member ? member.displayName : item.author_username;
-                const embed = new EmbedBuilder()
-                    .setTitle(`${isReply ? 'リプライID' : '投稿ID'}: ${item.id}`)
-                    .setAuthor({ name: `${displayName} (@${item.author_username})` }) // ニックネーム + ユーザー名
-                    .setDescription(item.content)
-                    .setColor(0x0099FF)
-                    .setTimestamp(new Date(item.created_at));
-                if (item.image_url) embed.setImage(item.image_url);
-                return embed;
-            }));
-
-            await interaction.reply({ embeds, flags: 64 }); // ephemeral
-        });
-    },
-    async handleReaction(reaction, user, originalInteraction) {
-        const db = originalInteraction.client.db;
-        const guildId = originalInteraction.guild.id;
-        const userId = user.id;
-        const channel = originalInteraction.channel;
-
-        let query = '';
-        let params = [];
-        let title = '';
-
-        switch (reaction.emoji.name) {
-            case '🌐': // 最新の公開投稿
-                query = `SELECT * FROM posts WHERE guild_id = ? AND is_private = 0 ORDER BY created_at DESC LIMIT 5`;
-                params = [guildId];
-                title = '最新の公開投稿';
-                break;
-            case '📝': // 自分の投稿
-                query = `SELECT * FROM posts WHERE guild_id = ? AND author_id = ? ORDER BY created_at DESC LIMIT 5`;
-                params = [guildId, userId];
-                title = 'あなたの投稿';
-                break;
-            case '💬': // 自分が投稿したリプライ
-                query = `SELECT * FROM replies WHERE author_id = ? AND guild_id = ? ORDER BY created_at DESC LIMIT 5`;
-                params = [userId, guildId];
-                title = 'あなたが投稿したリプライ';
-                break;
-            case '❤️': // 自分がいいねした投稿
-                query = `SELECT p.* FROM posts p JOIN user_likes ul ON p.id = ul.post_id WHERE ul.user_id = ? AND p.guild_id = ? ORDER BY p.created_at DESC LIMIT 5`;
-                params = [userId, guildId];
-                title = 'あなたが「いいね」した投稿';
-                break;
-            case '❌': // キャンセル
-                try {
-                    await originalInteraction.editReply({ content: 'フィード表示をキャンセルしました。' });
-                } catch (editErr) {
-                    if (editErr.code !== 10008) {
-                        console.error('Error editing reply:', editErr);
-                    }
-                }
-                originalInteraction.client.feedInteractions.delete(reaction.message.id);
-                return;
-            default:
-                return;
-        }
-
-        // リアクションメッセージを削除してからembedを表示
-        await reaction.message.delete();
-        
-        db.all(query, params, async (err, rows) => {
-            if (err) {
-                console.error('Error fetching posts from database:', err.message);
-                try {
-                    await originalInteraction.editReply({ content: '投稿の取得中にエラーが発生しました。' });
-                } catch (editErr) {
-                    if (editErr.code !== 10008) {
-                        console.error('Error editing reply:', editErr);
-                    }
-                }
-                originalInteraction.client.feedInteractions.delete(reaction.message.id);
-                return;
-            }
-
-            if (rows.length === 0) {
-                try {
-                    await originalInteraction.editReply({ content: `${title} はまだありません。` });
-                } catch (err) {
-                    if (err.code !== 10008) { // Unknown Message以外のエラーのみログ出力
-                        console.error('Error editing reply:', err);
-                    }
-                }
-                originalInteraction.client.feedInteractions.delete(reaction.message.id);
                 return;
             }
 
             // ページングのための初期処理
             const limit = 5;
             let currentPage = 0;
-            const totalPages = Math.ceil(rows.length / limit);
+            const totalPages = Math.ceil(allPosts.length / limit);
 
             // 最初のページを表示
             const displayPage = async (page) => {
                 const start = page * limit;
                 const end = start + limit;
-                const pageRows = rows.slice(start, end);
+                const pageRows = allPosts.slice(start, end);
 
                 // 全ての投稿をembedの配列にまとめる
-            const embeds = [];
-            const allComponents = [];
+                const embeds = [];
+                const allComponents = [];
 
-            for (let i = 0; i < pageRows.length; i++) {
-                const row = pageRows[i];
-                let rowEmbed;
-                if (row.post_id) { // リプライの場合（repliesテーブルの行）
-                    rowEmbed = new EmbedBuilder()
-                        .setTitle(`リプライ by ${row.author_username}`)
-                        .setDescription(row.content)
-                        .addFields({ name: '元の投稿ID', value: row.post_id })
-                        .setColor(0x0099FF)
-                        .setTimestamp(new Date(row.created_at))
-                        .setFooter({ text: `リプライID: ${row.id}` });
-                } else { // 通常の投稿の場合（postsテーブルの行）
-                    rowEmbed = new EmbedBuilder()
-                        .setTitle(`投稿 by ${row.author_username}`)
-                        .setDescription(row.content)
-                        .setColor(0x00FF00)
-                        .setTimestamp(new Date(row.created_at))
-                        .setFooter({ text: `ID: ${row.id} | いいね: ${row.likes}` });
-                    if (row.image_url) {
-                        rowEmbed.setImage(row.image_url);
+                for (let i = 0; i < pageRows.length; i++) {
+                    const row = pageRows[i];
+                    let rowEmbed;
+                    const isReply = type === 'my_replies';
+                    const member = await interaction.guild.members.fetch(row.author_id).catch(() => null);
+                    const displayName = member ? member.displayName : row.author_username;
+                    if (row.post_id) { // リプライの場合（repliesテーブルの行）
+                        rowEmbed = new EmbedBuilder()
+                            .setTitle(`リプライID: ${row.id}`)
+                            .setAuthor({ name: `${displayName} (@${row.author_username})` })
+                            .setDescription(row.content)
+                            .addFields({ name: '元の投稿ID', value: row.post_id })
+                            .setColor(0x0099FF)
+                            .setTimestamp(new Date(row.created_at));
+                    } else { // 通常の投稿の場合（postsテーブルの行）
+                        rowEmbed = new EmbedBuilder()
+                            .setTitle(`投稿ID: ${row.id}`)
+                            .setAuthor({ name: `${displayName} (@${row.author_username})` })
+                            .setDescription(row.content)
+                            .setColor(0x00FF00)
+                            .setTimestamp(new Date(row.created_at))
+                            .setFooter({ text: `いいね: ${row.likes}` });
+                        if (row.image_url) {
+                            rowEmbed.setImage(row.image_url);
+                        }
                     }
+                    embeds.push(rowEmbed);
                 }
-                embeds.push(rowEmbed);
-            }
 
-            // ページングボタンも追加
-            if (totalPages > 1) {
-                const pageMessageId = originalInteraction.id;
-                const prevButton = new ButtonBuilder()
-                    .setCustomId(`prev_page_${pageMessageId}`)
-                    .setLabel('前へ')
-                    .setStyle(ButtonStyle.Secondary)
-                    .setEmoji('⬅️')
-                    .setDisabled(page === 0);
+                // ページングボタンも追加
+                if (totalPages > 1) {
+                    const pageMessageId = interaction.id;
+                    const prevButton = new ButtonBuilder()
+                        .setCustomId(`prev_page_${pageMessageId}`)
+                        .setLabel('前へ')
+                        .setStyle(ButtonStyle.Secondary)
+                        .setEmoji('⬅️')
+                        .setDisabled(page === 0);
 
-                const nextButton = new ButtonBuilder()
-                    .setCustomId(`next_page_${pageMessageId}`)
-                    .setLabel('次へ')
-                    .setStyle(ButtonStyle.Secondary)
-                    .setEmoji('➡️')
-                    .setDisabled(page >= totalPages - 1);
+                    const nextButton = new ButtonBuilder()
+                        .setCustomId(`next_page_${pageMessageId}`)
+                        .setLabel('次へ')
+                        .setStyle(ButtonStyle.Secondary)
+                        .setEmoji('➡️')
+                        .setDisabled(page >= totalPages - 1);
 
-                const pageRow = new ActionRowBuilder()
-                    .addComponents(prevButton, nextButton);
-                allComponents.push(pageRow);
+                    const pageRow = new ActionRowBuilder()
+                        .addComponents(prevButton, nextButton);
+                    allComponents.push(pageRow);
 
-                originalInteraction.client.pageInteractions.set(pageMessageId, {
-                    originalInteraction: originalInteraction,
-                    query: query,
-                    params: params,
-                    title: title,
-                    allRows: rows,
-                    currentPage: page,
-                    totalPages: totalPages,
-                    userId: user.id,
-                    messageId: pageMessageId
+                    interaction.client.pageInteractions.set(pageMessageId, {
+                        originalInteraction: interaction,
+                        query: query,
+                        params: params,
+                        title: title,
+                        allRows: allPosts,
+                        currentPage: page,
+                        totalPages: totalPages,
+                        userId: interaction.user.id,
+                        messageId: pageMessageId
+                    });
+                }
+
+                // エフェメラルで一括更新（元のメッセージを置き換え）
+                await interaction.reply({
+                    content: `${title} - ${page + 1}/${totalPages}ページ`,
+                    embeds: embeds,
+                    components: allComponents,
+                    flags: 64 // ephemeral
                 });
-            }
-
-            // エフェメラルで一括更新（元のメッセージを置き換え）
-            await originalInteraction.editReply({
-                content: `${title} - ${page + 1}/${totalPages}ページ`,
-                embeds: embeds,
-                components: allComponents
-            });
             };
 
             await displayPage(currentPage);
-            originalInteraction.client.feedInteractions.delete(reaction.message.id);
         });
     },
     async handlePageButton(interaction) {
@@ -278,22 +191,27 @@ module.exports = {
         for (let i = 0; i < pageRows.length; i++) {
             const row = pageRows[i];
             let rowEmbed;
+            const pageInteraction = pageData.originalInteraction;
+            const isReply = row.post_id !== undefined; // リプライかどうかを行の存在で判断
+            const member = await pageInteraction.guild.members.fetch(row.author_id).catch(() => null);
+            const displayName = member ? member.displayName : row.author_username;
             if (row.post_id) { // リプライの場合（repliesテーブルの行）
                 rowEmbed = new EmbedBuilder()
-                    .setTitle(`リプライ by ${row.author_username}`)
+                    .setTitle(`リプライID: ${row.id}`)
+                    .setAuthor({ name: `${displayName} (@${row.author_username})` })
                     .setDescription(row.content)
                     .addFields({ name: '元の投稿ID', value: row.post_id })
                     .setColor(0x0099FF)
-                    .setTimestamp(new Date(row.created_at))
-                    .setFooter({ text: `リプライID: ${row.id}` });
+                    .setTimestamp(new Date(row.created_at));
             } else { // 通常の投稿の場合（postsテーブルの行）
                 const description = row.image_url ? `${row.content}\n${row.image_url}` : row.content;
                 rowEmbed = new EmbedBuilder()
-                    .setTitle(`投稿 by ${row.author_username}`)
+                    .setTitle(`投稿ID: ${row.id}`)
+                    .setAuthor({ name: `${displayName} (@${row.author_username})` })
                     .setDescription(description)
                     .setColor(0x00FF00)
                     .setTimestamp(new Date(row.created_at))
-                    .setFooter({ text: `ID: ${row.id} | いいね: ${row.likes}` });
+                    .setFooter({ text: `いいね: ${row.likes}` });
             }
             embeds.push(rowEmbed);
         }
@@ -335,5 +253,4 @@ module.exports = {
             interaction.client.pageInteractions.set(pageMessageId, updatedPageData);
         }
     }
-
 };

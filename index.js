@@ -16,9 +16,9 @@ const client = new Client({
 
 client.commands = new Collection();
 client.postInteractions = new Map(); // /post コマンドの初期インタラクションを追跡するためのマップ
-client.feedInteractions = new Map(); // /feed コマンドの初期インタラクションを追跡するためのマップ
+
 client.pageInteractions = new Map(); // /feed のページングインタラクションを追跡するためのマップ
-client.postInteractions = new Map(); // /post の投稿確認インタラクションを追跡するためのマップ
+
 
 const sqlite3 = require('sqlite3').verbose();
 
@@ -200,77 +200,6 @@ client.on('interactionCreate', async interaction => {
     }
 });
 
-client.on('messageReactionAdd', async (reaction, user) => {
-    // ボット自身のリアクションは無視
-    if (user.bot) return;
 
-    // リアクションが部分的な場合はフェッチ
-    if (reaction.partial) {
-        try {
-            await reaction.fetch();
-        } catch (error) {
-            console.error('Something went wrong when fetching the reaction:', error);
-            return;
-        }
-    }
-
-    // client.postInteractions マップに登録されているメッセージに対するリアクションか確認
-    const postOriginalInteraction = client.postInteractions.get(reaction.message.id);
-    const feedOriginalInteraction = client.feedInteractions.get(reaction.message.id);
-    const pageData = client.pageInteractions.get(reaction.message.id); // ページングデータの確認
-
-    let originalInteraction = null;
-    let commandName = null;
-
-    if (postOriginalInteraction) {
-        originalInteraction = postOriginalInteraction;
-        commandName = 'post';
-    } else if (feedOriginalInteraction) {
-        originalInteraction = feedOriginalInteraction;
-        commandName = 'feed';
-    } else if (pageData) {
-        // ページングメッセージへの不要なリアクションは削除
-        if (user.id !== pageData.userId) {
-            try {
-                await reaction.users.remove(user.id);
-            } catch (error) {
-                console.error('Failed to remove reaction:', error);
-            }
-        }
-        return;
-    }
-
-    if (originalInteraction) {
-        // リアクションを付けたユーザーが、元のコマンドを実行したユーザーと同一か確認
-        if (user.id !== originalInteraction.user.id) {
-            // 異なるユーザーのリアクションは削除
-            try {
-                await reaction.users.remove(user.id);
-            } catch (error) {
-                console.error('Failed to remove reaction:', error);
-            }
-            return;
-        }
-
-        const command = client.commands.get(commandName);
-        if (command && command.handleReaction) {
-            try {
-                await command.handleReaction(reaction, user, originalInteraction);
-                // 処理後、ユーザーのリアクションを削除してクリーンに保つ
-                try {
-                    await reaction.users.remove(user.id);
-                } catch (removeErr) {
-                    if (removeErr.code !== 10008) { // Unknown Message以外のエラーのみログ出力
-                        console.error('Error removing user reaction:', removeErr);
-                    }
-                }
-            } catch (error) {
-                if (error.code !== 10008) { // Unknown Message以外のエラーのみログ出力
-                    console.error('Error handling reaction:', error);
-                }
-            }
-        }
-    }
-});
 
 client.login(process.env.DISCORD_TOKEN);
