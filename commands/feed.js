@@ -92,7 +92,6 @@ module.exports = {
                             .setTimestamp(new Date(row.created_at));
                     } else { // 通常の投稿の場合（postsテーブルの行）
                         rowEmbed = new EmbedBuilder()
-                            .setTitle(`投稿ID: ${row.id}`)
                             .setAuthor({ name: `${displayName} (@${row.author_username})` })
                             .setDescription(`**${row.content}**`)
                             .setTimestamp(new Date(row.created_at))
