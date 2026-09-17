@@ -54,30 +54,19 @@ jobs:
         git config --local user.email "action@github.com"
         git config --local user.name "GitHub Action"
         
-        # 現在のposts.dbをdataディレクトリに移行（初回のみ）
-        if [ -f "./posts.db" ] && [ ! -f "data/database.sqlite" ]; then
-          echo "📊 posts.dbをdata/database.sqliteに移行します"
-          cp ./posts.db data/database.sqlite
+        # 既存のデータベースをdataディレクトリに移行（初回のみ）
+        if [ -f "./database.sqlite" ] && [ ! -f "data/database.sqlite" ]; then
+          echo "📊 database.sqliteをdata/database.sqliteに移行します"
+          cp ./database.sqlite data/database.sqlite
         fi
         
-        # 既存のデータを保護（上書きしない）
-        if [ -d "data" ]; then
-          echo "✅ 既存のdataディレクトリを保護します"
-          if [ -f data/database.sqlite ]; then
-            echo "📊 データベースサイズ: $(du -sh data/database.sqlite | cut -f1)"
-          fi
+        # 既存のデータベースをルートにコピー
+        if [ -f "data/database.sqlite" ]; then
+          echo "📊 既存のデータベースをルートにコピーします"
+          cp data/database.sqlite ./database.sqlite
+          echo "✅ データベースの準備が完了しました"
         else
-          echo "⚠️ dataディレクトリが見つかりません"
-          echo "🔄 GitHubから取得を試みます..."
-          git fetch origin main
-          git checkout origin/main -- data/ 2>/dev/null || echo "⚠️ GitHubからの取得に失敗しました"
-          
-          if [ -d "data" ]; then
-            echo "✅ GitHubからdataディレクトリを取得しました"
-          else
-            echo "📝 新規に空のデータディレクトリを作成します"
-            mkdir -p data
-          fi
+          echo "⚠️ 既存のデータベースが見つからないため、新規に作成されます"
         fi
 
     - name: Check if bot is running
@@ -96,14 +85,20 @@ jobs:
         git config user.email "actions-user@users.noreply.github.com"
         git config user.name "actions-user"
 
-    - name: Create commit to trigger actions-user
+    - name: Save database after run
       if: always()
       run: |
-        # main.ymlのタイムスタンプを更新してコミット
-        touch .github/workflows/main.yml
-        git add .github/workflows/main.yml
-        git commit -m "Trigger actions-user to appear in contributors [skip ci]" || echo "No changes to commit"
-        git push
+        git config user.email "actions-user@users.noreply.github.com"
+        git config user.name "actions-user"
+        
+        # 実行後のデータベースをdataディレクトリに保存
+        if [ -f "./database.sqlite" ]; then
+          mkdir -p data
+          cp ./database.sqlite data/database.sqlite
+          git add data/database.sqlite
+          git commit -m "Update database [skip ci]" || echo "⚠️ コミットする変更がありません"
+          git push origin main || echo "⚠️ プッシュに失敗しました"
+        fi
 
     - name: Start Bot
       if: ${{ env.RUN_BOT == 'true' }}
