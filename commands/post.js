@@ -119,8 +119,9 @@ module.exports = {
         }
     },
     async handleModalSubmit(interaction) {
-        // customIdから元のinteractionIdを抽出
+        // customIdから元のinteractionIdと公開/非公開の設定を抽出
         const parts = interaction.customId.split('_');
+        const isPrivate = parts[2] === 'private'; // post_modal_private_xxxx → parts[2]がprivate
         const originalInteractionId = parts[parts.length - 1]; // 最後の要素がoriginalInteractionId
 
         // 元のインタラクションを取得
@@ -134,7 +135,18 @@ module.exports = {
         if (interaction.customId.startsWith('post_modal_public') || interaction.customId.startsWith('post_modal_private')) {
             const postContent = interaction.fields.getTextInputValue('postContent');
             const postUrl = interaction.fields.getTextInputValue('postUrl');
-            const allowedUsers = interaction.customId.startsWith('post_modal_private') ? interaction.fields.getTextInputValue('allowedUsers') : null;
+            const allowedUsers = isPrivate ? interaction.fields.getTextInputValue('allowedUsers') : null;
+
+            // 投稿内容を一時的にpostInteractionsに保存（ボタンクリック時に使用）
+            interaction.client.postInteractions.set(originalInteractionId, {
+                ...originalInteraction,
+                postContent,
+                postUrl,
+                isPrivate,
+                allowedUsers,
+                user: interaction.user,
+                guild: interaction.guild
+            });
 
             const confirmPostButton = new ButtonBuilder()
                 .setCustomId(`confirm_post_yes_${originalInteractionId}`) // originalInteractionIdを含める
@@ -156,6 +168,7 @@ module.exports = {
             if (allowedUsers) {
                 confirmationDescription += `\n**閲覧許可ユーザー名:** ${allowedUsers}`;
             }
+            confirmationDescription += `\n**公開設定:** ${isPrivate ? '🔒 非公開' : '🌐 公開'}`;
 
             const confirmEmbed = new EmbedBuilder()
                 .setTitle('投稿内容の確認')
@@ -169,6 +182,66 @@ module.exports = {
             });
         }
     },
+    async handleButton(interaction) {
+             // タイムアウト回避のため最初にdeferUpdateを実行
+             await interaction.deferUpdate();
+             
+             // customIdを分割してアクションを取得
+             // confirm_post_yes_xxxx → [confirm, post, yes, xxxx]
+             // confirm_post_no_xxxx → [confirm, post, no, xxxx]
+             const parts = interaction.customId.split('_');
+             const action = parts[0]; // confirm
+             const subAction = parts[1]; // post
+             const userChoice = parts[2]; // yes or no
+             const originalInteractionId = parts[3]; // 元のinteractionId
+             
+             // 元のインタラクション（一時保存した投稿内容含む）を取得
+             const postData = interaction.client.postInteractions.get(originalInteractionId);
+             
+             if (!postData) {
+                 await interaction.editReply({ content: 'この投稿プロセスは無効になりました。', components: [] });
+                 return;
+             }
+
+             // 投稿確認ボタンの処理
+             if (action === 'confirm' && subAction === 'post') {
+                 if (userChoice === 'no') {
+                     // いいえ（キャンセル）の場合
+                     await interaction.editReply({ content: '投稿をキャンセルしました。', components: [] });
+                     interaction.client.postInteractions.delete(originalInteractionId);
+                     return;
+                 } else if (userChoice === 'yes') {
+                     // はい（投稿実行）の場合 → ここで初めてDBに保存する
+                     console.log('保存するpostDataの中身:', postData); // デバッグ用ログ追加
+                     const { nanoid } = await import('nanoid');
+                     const postId = nanoid();
+                     const db = interaction.client.db;
+                     
+                     const is_private = postData.isPrivate ? 1 : 0;
+                     const guild_name = postData.guild ? postData.guild.name : 'DM';
+                     const guild_id = postData.guild ? postData.guild.id : null;
+                     const author_username = postData.user.username;
+                     const author_id = postData.user.id;
+
+                     // 投稿をDBに挿入
+                     db.run(`INSERT INTO posts (id, content, image_url, author_username, author_id, guild_id, guild_name, is_private, allowed_users, created_at, likes) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), 0)`,
+                         [postId, postData.postContent, postData.postUrl || null, author_username, author_id, guild_id, guild_name, is_private, postData.allowedUsers || null],
+                         async (err) => {
+                             if (err) {
+                                 console.error('Error inserting post:', err.message);
+                                 await interaction.editReply({ content: '投稿の保存中にエラーが発生しました。', components: [] });
+                                 interaction.client.postInteractions.delete(originalInteractionId);
+                                 return;
+                             }
+                             // 投稿成功メッセージ
+                             await interaction.editReply({ content: `✅ 投稿が完了しました！投稿ID: ${postId}`, components: [] });
+                             interaction.client.postInteractions.delete(originalInteractionId);
+                         }
+                     );
+                     return;
+                 }
+             }
+         },
     async handleReaction(reaction, user, originalInteraction) {
         // originalInteraction は index.js から渡されるため、ここでフェッチは不要
         // user.id !== originalInteraction.user.id のチェックも index.js で行われる

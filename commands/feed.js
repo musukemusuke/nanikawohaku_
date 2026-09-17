@@ -55,21 +55,25 @@ module.exports = {
                 await interaction.reply({ content: '投稿の取得中にエラーが発生しました。', flags: 64 }); // ephemeral
                 return;
             }
+            console.log('feedで取得したposts:', posts); // デバッグ用ログ追加
             if (posts.length === 0) {
                 await interaction.reply({ content: '該当する投稿がありませんでした。', flags: 64 }); // ephemeral
                 return;
             }
 
-            const embeds = posts.map(item => {
+            const embeds = await Promise.all(posts.map(async item => {
                 const isReply = type === 'my_replies';
+                const member = await interaction.guild.members.fetch(item.author_id).catch(() => null);
+                const displayName = member ? member.displayName : item.author_username;
                 const embed = new EmbedBuilder()
                     .setTitle(`${isReply ? 'リプライID' : '投稿ID'}: ${item.id}`)
+                    .setAuthor({ name: `${displayName} (@${item.author_username})` }) // ニックネーム + ユーザー名
                     .setDescription(item.content)
                     .setColor(0x0099FF)
                     .setTimestamp(new Date(item.created_at));
                 if (item.image_url) embed.setImage(item.image_url);
                 return embed;
-            });
+            }));
 
             await interaction.reply({ embeds, flags: 64 }); // ephemeral
         });
@@ -235,6 +239,8 @@ module.exports = {
         });
     },
     async handlePageButton(interaction) {
+        // タイムアウト回避のため最初にdeferUpdate
+        await interaction.deferUpdate();
         const [action, _, pageMessageId] = interaction.customId.split('_');
         const pageData = interaction.client.pageInteractions.get(pageMessageId);
         
