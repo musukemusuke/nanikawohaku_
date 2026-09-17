@@ -44,8 +44,8 @@ module.exports = {
                 }
             )
             .setTimestamp()
-            .setFooter({ iconURL: interaction.client.user.displayAvatarURL() });
+            .setFooter({ text: '投稿ボット', iconURL: interaction.client.user.displayAvatarURL() });
 
-        await interaction.reply({ embeds: [helpEmbed], ephemeral: true });
+        await interaction.reply({ embeds: [helpEmbed], flags: 64 }); // 64 is the flag for ephemeral
     }
 };
