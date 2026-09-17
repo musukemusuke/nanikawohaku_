@@ -242,9 +242,17 @@ client.on('messageReactionAdd', async (reaction, user) => {
             try {
                 await command.handleReaction(reaction, user, originalInteraction);
                 // 処理後、ユーザーのリアクションを削除してクリーンに保つ
-                await reaction.users.remove(user.id);
+                try {
+                    await reaction.users.remove(user.id);
+                } catch (removeErr) {
+                    if (removeErr.code !== 10008) { // Unknown Message以外のエラーのみログ出力
+                        console.error('Error removing user reaction:', removeErr);
+                    }
+                }
             } catch (error) {
-                console.error('Error handling reaction:', error);
+                if (error.code !== 10008) { // Unknown Message以外のエラーのみログ出力
+                    console.error('Error handling reaction:', error);
+                }
             }
         }
     }
