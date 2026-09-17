@@ -49,11 +49,13 @@ jobs:
         mkdir -p logs temp data
         chmod 755 logs temp data
 
-    - name: Preserve existing data
+    - name: Configure Git for Actions
       run: |
         git config --local user.email "action@github.com"
         git config --local user.name "GitHub Action"
-        
+
+    - name: Preserve existing data
+      run: |
         # 既存のデータベースをdataディレクトリに移行（初回のみ）
         if [ -f "./database.sqlite" ] && [ ! -f "data/database.sqlite" ]; then
           echo "📊 database.sqliteをdata/database.sqliteに移行します"
@@ -69,18 +71,15 @@ jobs:
           echo "⚠️ 既存のデータベースが見つからないため、新規に作成されます"
         fi
 
-    - name: Start Bot and Configure Git
-      id: start_bot
+
+
+    - name: Start Bot
       env:
         DISCORD_TOKEN: ${{ secrets.DISCORD_TOKEN }}
         CLIENT_ID: ${{ secrets.CLIENT_ID }}
+        NODE_DEBUG: ""
+        NODE_ENV: production
       run: |
-        echo "ボットを起動し、Gitを設定します"
-        
-        # Git設定
-        git config user.email "actions-user@users.noreply.github.com"
-        git config user.name "actions-user"
-
         # DBファイルの存在を確認（posts.dbではなくdatabase.sqliteを使用）
         if [ ! -f "./database.sqlite" ]; then
           echo "⚠️ database.sqliteが存在しないため、新規作成します"
@@ -93,44 +92,6 @@ jobs:
         
         # セグフォ回避のための環境変数を設定
         export NODE_OPTIONS="--trace-warnings"
-        node index.js &
-        BOT_PID=$!
-        
-        # 15秒待機してプロセスが落ちていないか確認
-        sleep 15
-        if ps -p $BOT_PID > /dev/null; then
-          echo "✅ ボットが正常に起動しました（PID: $BOT_PID）"
-          # バックグラウンドで実行を継続
-        else
-          echo "❌ ボットの起動に失敗しました"
-          exit 1
-        fi
-
-    - name: Save database after run
-      if: always()
-      run: |
-        git config user.email "actions-user@users.noreply.github.com"
-        git config user.name "actions-user"
-        
-        # 実行後のデータベースをdataディレクトリに保存
-        if [ -f "./database.sqlite" ]; then
-          mkdir -p data
-          cp ./database.sqlite data/database.sqlite
-          git add data/database.sqlite
-          git commit -m "Update database [skip ci]" || echo "⚠️ コミットする変更がありません"
-          git push origin main || echo "⚠️ プッシュに失敗しました"
-        fi
-
-    - name: Start Bot
-      if: ${{ env.RUN_BOT == 'true' }}
-      env:
-        DISCORD_TOKEN: ${{ secrets.DISCORD_TOKEN }}
-        CLIENT_ID: ${{ secrets.CLIENT_ID }}
-        NODE_DEBUG: ""
-        NODE_ENV: production
-      run: |
-        # 既存のプロセスを終了
-        pkill -f "node.*index.js" || true
         
         # dataディレクトリのdatabase.sqliteをルートのposts.dbにコピー（互換性維持）
         if [ -f data/database.sqlite ]; then
@@ -173,15 +134,3 @@ jobs:
           git commit -m "Auto-update database.sqlite [skip ci]" || echo "No changes to commit"
           git push
         done
-
-    - name: Commit database changes (最終実行)
-      if: always() # ボットがクラッシュしても必ず実行
-      run: |
-        # 最後にも最新のデータベースをコピー
-        if [ -f ./posts.db ]; then
-          cp ./posts.db data/database.sqlite
-        fi
-        git status
-        git add data/database.sqlite
-        git commit -m "Final update database.sqlite from bot run" || echo "No changes to commit"
-        git push
