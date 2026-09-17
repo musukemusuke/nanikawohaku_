@@ -40,7 +40,7 @@ module.exports = {
                         .addFields({ name: 'サーバー', value: row.guild_name || '不明' })
                         .setColor(0x9900FF) // グローバルフィード用の紫色
                         .setTimestamp(new Date(row.created_at))
-                        .setFooter({ text: `ID: ${row.id} | いいね: ${row.likes}` });
+                        .setFooter({ text: `投稿ID: ${row.id} | いいね: ${row.likes}` });
                     if (row.image_url) {
                         rowEmbed.setImage(row.image_url);
                     }
@@ -129,7 +129,7 @@ module.exports = {
                 .addFields({ name: 'サーバー', value: row.guild_name || '不明' })
                 .setColor(0x9900FF)
                 .setTimestamp(new Date(row.created_at))
-                .setFooter({ text: `ID: ${row.id} | いいね: ${row.likes}` });
+                .setFooter({ text: `投稿ID: ${row.id} | いいね: ${row.likes}` });
             embeds.push(rowEmbed);
         }
 
