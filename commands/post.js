@@ -142,9 +142,6 @@ module.exports = {
         // index.js で処理されるため、ここでは不要
 
         if (reaction.emoji.name === '🌐') { // 公開投稿
-            // リアクションメッセージを削除してからモーダルを表示
-            await reaction.message.delete();
-            
             const modal = new ModalBuilder()
                 .setCustomId(`post_modal_public_${originalInteraction.id}`) // originalInteractionIdを含める
                 .setTitle('公開投稿を作成');
@@ -168,15 +165,14 @@ module.exports = {
             modal.addComponents(firstActionRow, secondActionRow);
             try {
                 await originalInteraction.showModal(modal); // originalInteraction を使用
+                // モーダルが正常に表示されたらリアクションメッセージを削除
+                await reaction.message.delete();
             } catch (err) {
                 if (err.code !== 'InteractionAlreadyReplied' && err.code !== 10008) {
                     console.error('Error showing modal in post.js:', err);
                 }
             }
         } else if (reaction.emoji.name === '🔒') { // 非公開投稿
-            // リアクションメッセージを削除してからモーダルを表示
-            await reaction.message.delete();
-            
             const modal = new ModalBuilder()
                 .setCustomId(`post_modal_private_${originalInteraction.id}`) // originalInteractionIdを含める
                 .setTitle('非公開投稿を作成');
@@ -208,6 +204,8 @@ module.exports = {
             modal.addComponents(firstActionRow, secondActionRow, thirdActionRow);
             try {
                 await originalInteraction.showModal(modal); // originalInteraction を使用
+                // モーダルが正常に表示されたらリアクションメッセージを削除
+                await reaction.message.delete();
             } catch (err) {
                 if (err.code !== 'InteractionAlreadyReplied' && err.code !== 10008) {
                     console.error('Error showing private modal in post.js:', err);
