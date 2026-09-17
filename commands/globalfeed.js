@@ -36,7 +36,7 @@ module.exports = {
                     const row = pageRows[i];
                     const rowEmbed = new EmbedBuilder()
                         .setTitle(`投稿 by ${row.author_username}`)
-                        .setDescription(row.content)
+                        .setDescription(`**${row.content}**`)
                         .addFields({ name: 'サーバー', value: row.guild_name || '不明' })
                         .setColor(0x9900FF) // グローバルフィード用の紫色
                         .setTimestamp(new Date(row.created_at))
@@ -122,8 +122,7 @@ module.exports = {
 
         for (let i = 0; i < pageRows.length; i++) {
             const row = pageRows[i];
-            // 画像URLが存在する場合は本文の最後に追加して、本文直後にプレビュー表示させる
-            const description = row.image_url ? `${row.content}\n${row.image_url}` : row.content;
+            const description = row.image_url ? `**${row.content}**\n${row.image_url}` : `**${row.content}**`;
             const rowEmbed = new EmbedBuilder()
                 .setTitle(`投稿 by ${row.author_username}`)
                 .setDescription(description)

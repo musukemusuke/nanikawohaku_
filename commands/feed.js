@@ -86,7 +86,7 @@ module.exports = {
                         rowEmbed = new EmbedBuilder()
                             .setTitle(`リプライID: ${row.id}`)
                             .setAuthor({ name: `${displayName} (@${row.author_username})` })
-                            .setDescription(row.content)
+                            .setDescription(`**${row.content}**`)
                             .addFields({ name: '元の投稿ID', value: row.post_id })
                             .setColor(0x0099FF)
                             .setTimestamp(new Date(row.created_at));
@@ -94,10 +94,9 @@ module.exports = {
                         rowEmbed = new EmbedBuilder()
                             .setTitle(`投稿ID: ${row.id}`)
                             .setAuthor({ name: `${displayName} (@${row.author_username})` })
-                            .setDescription(row.content)
-                            .setColor(0x00FF00)
+                            .setDescription(`**${row.content}**`)
                             .setTimestamp(new Date(row.created_at))
-                            .setFooter({ text: `いいね: ${row.likes}` });
+                            .setFooter({ text: `投稿ID: ${row.id} | いいね: ${row.likes}` });
                         if (row.image_url) {
                             rowEmbed.setImage(row.image_url);
                         }

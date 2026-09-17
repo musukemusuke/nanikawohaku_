@@ -50,6 +50,7 @@ const db = new sqlite3.Database('./database.sqlite', (err) => {
                 post_id TEXT NOT NULL,
                 author_id TEXT NOT NULL,
                 author_username TEXT NOT NULL,
+                guild_id TEXT NOT NULL,
                 content TEXT NOT NULL,
                 created_at TEXT NOT NULL,
                 FOREIGN KEY (post_id) REFERENCES posts(id)
@@ -63,9 +64,15 @@ const db = new sqlite3.Database('./database.sqlite', (err) => {
             // 既存のテーブルにguild_nameカラムを追加（存在しない場合）
             db.run(`ALTER TABLE posts ADD COLUMN guild_name TEXT`, (err) => {
                 if (err && !err.message.includes('duplicate column name')) {
-                    console.error('Error adding guild_name column:', err);
+                    console.error('Error adding guild_name column to posts:', err);
+                }
+            });
+            // 既存のrepliesテーブルにguild_idカラムを追加（存在しない場合）
+            db.run(`ALTER TABLE replies ADD COLUMN guild_id TEXT`, (err) => {
+                if (err && !err.message.includes('duplicate column name')) {
+                    console.error('Error adding guild_id column to replies:', err);
                 } else {
-                    console.log('guild_nameカラム追加完了');
+                    console.log('guild_idカラム追加完了');
                 }
             });
         });
