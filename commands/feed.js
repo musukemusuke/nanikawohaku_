@@ -3,25 +3,69 @@ const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, Butt
 module.exports = {
     data: new SlashCommandBuilder()
         .setName('feed')
-        .setDescription('最新の公開投稿を表示します。'),
+        .setDescription('投稿フィードを表示します。')
+        .addStringOption(option =>
+            option.setName('type')
+                .setDescription('表示する投稿の種類を選択してください')
+                .setRequired(true)
+                .addChoices(
+                    { name: '🌐', value: 'public' },
+                    { name: '📝', value: 'my_posts' },
+                    { name: '💬', value: 'my_replies' },
+                    { name: '❤️', value: 'my_likes' }
+                )),
     async execute(interaction) {
-        const embed = new EmbedBuilder()
-            .setTitle('フィード表示オプション')
-            .setDescription('どの種類の投稿を表示しますか？\n\n🌐 最新の公開投稿\n📝 自分の投稿\n💬 自分の投稿したリプライ\n❤️ 自分がいいねした投稿\n❌ キャンセル')
-            .setColor(0x0099FF);
+        const type = interaction.options.getString('type');
+        const db = interaction.client.db;
+        const guildId = interaction.guild.id;
+        const userId = interaction.user.id;
+        const channel = interaction.channel;
 
-        const replyMessage = await interaction.reply({
-            embeds: [embed],
-            withResponse: true
-        }).then(res => res.resource?.message);
+        let query = '';
+        let params = [];
+        let title = '';
 
-        interaction.client.feedInteractions.set(replyMessage.id, interaction);
+        switch (type) {
+            case 'public': // 最新の公開投稿
+                query = `SELECT * FROM posts WHERE guild_id = ? AND is_private = 0 ORDER BY created_at DESC LIMIT 5`;
+                params = [guildId];
+                title = '最新の公開投稿';
+                break;
+            case 'my_posts': // 自分の投稿
+                query = `SELECT * FROM posts WHERE guild_id = ? AND author_id = ? ORDER BY created_at DESC LIMIT 5`;
+                params = [guildId, userId];
+                title = 'あなたの投稿';
+                break;
+            case 'my_replies': // 自分が投稿したリプライ
+                query = `SELECT * FROM replies WHERE author_id = ? AND guild_id = ? ORDER BY created_at DESC LIMIT 5`;
+                params = [userId, guildId];
+                title = 'あなたが投稿したリプライ';
+                break;
+            case 'my_likes': // 自分がいいねした投稿
+                query = `SELECT posts.* FROM posts JOIN likes ON posts.id = likes.post_id WHERE posts.guild_id = ? AND likes.user_id = ? ORDER BY posts.created_at DESC LIMIT 5`;
+                params = [guildId, userId];
+                title = 'あなたがいいねした投稿';
+                break;
+        }
 
-        await replyMessage.react('🌐');
-        await replyMessage.react('📝');
-        await replyMessage.react('💬');
-        await replyMessage.react('❤️');
-        await replyMessage.react('❌');
+        // 以降の表示処理を実行
+        const posts = await db.all(query, params);
+        if (posts.length === 0) {
+            await interaction.reply({ content: '該当する投稿がありませんでした。', ephemeral: true });
+            return;
+        }
+
+        const embeds = posts.map(post => {
+            const embed = new EmbedBuilder()
+                .setTitle(post.title || '投稿')
+                .setDescription(post.content)
+                .setColor(0x0099FF)
+                .setTimestamp(new Date(post.created_at));
+            if (post.image_url) embed.setImage(post.image_url);
+            return embed;
+        });
+
+        await interaction.reply({ embeds });
     },
     async handleReaction(reaction, user, originalInteraction) {
         const db = originalInteraction.client.db;
