@@ -45,10 +45,14 @@ module.exports = {
             }
 
             const replyId = nanoid(10);
-            const createdAt = new Date().toISOString();
+            // 日本時間で作成日時を生成
+            const now = new Date();
+            const jstNow = new Date(now.getTime() + 9 * 60 * 60 * 1000); // UTC+9
+            const createdAt = jstNow.toISOString().replace('T', ' ').slice(0, 19);
 
+            const guildId = interaction.guild.id;
             // リプライをデータベースに保存
-            db.run(`INSERT INTO replies (id, post_id, author_id, author_username, content, created_at) VALUES (?, ?, ?, ?, ?, ?)`, [replyId, postId, userId, username, replyContent, createdAt], async (err) => {
+            db.run(`INSERT INTO replies (id, post_id, author_id, author_username, guild_id, content, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)`, [replyId, postId, userId, username, guildId, replyContent, createdAt], async (err) => {
                 if (err) {
                     console.error('Error inserting reply:', err.message);
                     const errorEmbed = new EmbedBuilder()

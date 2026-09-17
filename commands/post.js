@@ -223,9 +223,14 @@ module.exports = {
                      const author_username = postData.user.username;
                      const author_id = postData.user.id;
 
+                     // 日本時間で作成日時を生成
+                     const now = new Date();
+                     const jstNow = new Date(now.getTime() + 9 * 60 * 60 * 1000); // UTC+9
+                     const createdAt = jstNow.toISOString().replace('T', ' ').slice(0, 19);
+                     
                      // 投稿をDBに挿入
-                     db.run(`INSERT INTO posts (id, content, image_url, author_username, author_id, guild_id, guild_name, is_private, allowed_users, created_at, likes) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), 0)`,
-                         [postId, postData.postContent, postData.postUrl || null, author_username, author_id, guild_id, guild_name, is_private, postData.allowedUsers || null],
+                     db.run(`INSERT INTO posts (id, content, image_url, author_username, author_id, guild_id, guild_name, is_private, allowed_users, created_at, likes) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)`,
+                         [postId, postData.postContent, postData.postUrl || null, author_username, author_id, guild_id, guild_name, is_private, postData.allowedUsers || null, createdAt],
                          async (err) => {
                              if (err) {
                                  console.error('Error inserting post:', err.message);
