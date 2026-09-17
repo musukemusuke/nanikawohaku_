@@ -127,8 +127,8 @@ jobs:
           
           # 5分ごとにデータベースをコミット
           sleep 300
-          # 実行中に更新されたposts.dbをdataディレクトリに同期
-          cp ./posts.db data/database.sqlite
+          # 実行中に更新されたdatabase.sqliteをdataディレクトリに同期
+          cp ./database.sqlite data/database.sqlite
           git status
           git add data/database.sqlite
           git commit -m "Auto-update database.sqlite [skip ci]" || echo "No changes to commit"

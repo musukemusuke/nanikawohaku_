@@ -28,44 +28,46 @@ const db = new sqlite3.Database('./database.sqlite', (err) => {
         console.error('Database connection error:', err.message);
     } else {
         console.log('Connected to the SQLite database.');
-        // テーブルが存在しない場合は作成
-        db.run(`CREATE TABLE IF NOT EXISTS posts (
-            id TEXT PRIMARY KEY,
-            author_id TEXT NOT NULL,
-            author_username TEXT NOT NULL,
-            guild_id TEXT NOT NULL,
-            guild_name TEXT,
-            channel_id TEXT,
-            message_id TEXT,
-            content TEXT NOT NULL,
-            image_url TEXT,
-            is_private INTEGER NOT NULL,
-            allowed_users TEXT,
-            created_at TEXT NOT NULL,
-            likes INTEGER DEFAULT 0
-        )`);
-        db.run(`CREATE TABLE IF NOT EXISTS replies (
-            id TEXT PRIMARY KEY,
-            post_id TEXT NOT NULL,
-            author_id TEXT NOT NULL,
-            author_username TEXT NOT NULL,
-            content TEXT NOT NULL,
-            created_at TEXT NOT NULL,
-            FOREIGN KEY (post_id) REFERENCES posts(id)
-        )`);
-        db.run(`CREATE TABLE IF NOT EXISTS user_likes (
-            user_id TEXT NOT NULL,
-            post_id TEXT NOT NULL,
-            PRIMARY KEY (user_id, post_id),
-            FOREIGN KEY (post_id) REFERENCES posts(id)
-        )`);
-        // 既存のテーブルにguild_nameカラムを追加（存在しない場合）
-        db.run(`ALTER TABLE posts ADD COLUMN IF NOT EXISTS guild_name TEXT`, (err) => {
-            if (err && !err.message.includes('duplicate column name')) {
-                console.error('Error adding guild_name column:', err);
-            } else {
-                console.log('guild_nameカラム追加完了');
-            }
+        db.serialize(() => {
+            // テーブルが存在しない場合は作成
+            db.run(`CREATE TABLE IF NOT EXISTS posts (
+                id TEXT PRIMARY KEY,
+                author_id TEXT NOT NULL,
+                author_username TEXT NOT NULL,
+                guild_id TEXT NOT NULL,
+                guild_name TEXT,
+                channel_id TEXT,
+                message_id TEXT,
+                content TEXT NOT NULL,
+                image_url TEXT,
+                is_private INTEGER NOT NULL,
+                allowed_users TEXT,
+                created_at TEXT NOT NULL,
+                likes INTEGER DEFAULT 0
+            )`);
+            db.run(`CREATE TABLE IF NOT EXISTS replies (
+                id TEXT PRIMARY KEY,
+                post_id TEXT NOT NULL,
+                author_id TEXT NOT NULL,
+                author_username TEXT NOT NULL,
+                content TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                FOREIGN KEY (post_id) REFERENCES posts(id)
+            )`);
+            db.run(`CREATE TABLE IF NOT EXISTS user_likes (
+                user_id TEXT NOT NULL,
+                post_id TEXT NOT NULL,
+                PRIMARY KEY (user_id, post_id),
+                FOREIGN KEY (post_id) REFERENCES posts(id)
+            )`);
+            // 既存のテーブルにguild_nameカラムを追加（存在しない場合）
+            db.run(`ALTER TABLE posts ADD COLUMN IF NOT EXISTS guild_name TEXT`, (err) => {
+                if (err && !err.message.includes('duplicate column name')) {
+                    console.error('Error adding guild_name column:', err);
+                } else {
+                    console.log('guild_nameカラム追加完了');
+                }
+            });
         });
     }
 });
