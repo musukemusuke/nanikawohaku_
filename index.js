@@ -18,6 +18,7 @@ client.commands = new Collection();
 client.postInteractions = new Map(); // /post コマンドの初期インタラクションを追跡するためのマップ
 client.feedInteractions = new Map(); // /feed コマンドの初期インタラクションを追跡するためのマップ
 client.pageInteractions = new Map(); // /feed のページングインタラクションを追跡するためのマップ
+client.postInteractions = new Map(); // /post の投稿確認インタラクションを追跡するためのマップ
 
 const sqlite3 = require('sqlite3').verbose();
 
@@ -139,31 +140,42 @@ client.on('interactionCreate', async interaction => {
             }
         }
     } else if (interaction.isButton()) {
-        const customId = interaction.customId;
-        let command;
+            const customId = interaction.customId;
+            let command;
 
-        if (customId.startsWith('like_') || customId.startsWith('reply_')) {
-            command = client.commands.get('feed');
-            if (command && command.handleButton) {
-                try {
-                    await command.handleButton(interaction);
-                } catch (error) {
-                    console.error(error);
-                    await interaction.reply({ content: 'ボタンの処理中にエラーが発生しました！', flags: 64 });
+            if (customId.startsWith('like_') || customId.startsWith('reply_')) {
+                command = client.commands.get('feed');
+                if (command && command.handleButton) {
+                    try {
+                        await command.handleButton(interaction);
+                    } catch (error) {
+                        console.error(error);
+                        await interaction.reply({ content: 'ボタンの処理中にエラーが発生しました！', flags: 64 });
+                    }
+                }
+            } else if (customId.startsWith('confirm_post_')) {
+                // 投稿確認用のはい/いいえボタンの処理
+                command = client.commands.get('post');
+                if (command && command.handleButton) {
+                    try {
+                        await command.handleButton(interaction);
+                    } catch (error) {
+                        console.error(error);
+                        await interaction.reply({ content: 'ボタンの処理中にエラーが発生しました！', flags: 64 });
+                    }
+                }
+            } else if (customId.startsWith('prev_page_') || customId.startsWith('next_page_')) {
+                // ページング用ボタンの処理
+                command = client.commands.get('feed');
+                if (command && command.handlePageButton) {
+                    try {
+                        await command.handlePageButton(interaction);
+                    } catch (error) {
+                        console.error(error);
+                        await interaction.reply({ content: 'ページ移動の処理中にエラーが発生しました！', flags: 64 });
+                    }
                 }
             }
-        } else if (customId.startsWith('prev_page_') || customId.startsWith('next_page_')) {
-            // ページング用ボタンの処理
-            command = client.commands.get('feed');
-            if (command && command.handlePageButton) {
-                try {
-                    await command.handlePageButton(interaction);
-                } catch (error) {
-                    console.error(error);
-                    await interaction.reply({ content: 'ページ移動の処理中にエラーが発生しました！', flags: 64 });
-                }
-            }
-        }
     } else if (interaction.isModalSubmit()) {
         // モーダルのcustomIdからどのコマンドのモーダルかを判断し、そのコマンドのhandleModalSubmitを呼び出す
         let commandName = interaction.customId.split('_')[0]; // 例: 'post_modal_public' -> 'post'
