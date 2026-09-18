@@ -1,5 +1,6 @@
 const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
 const { nanoid } = require('nanoid');
+const { sendNotification } = require('../utils/pagination.js');
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -62,6 +63,9 @@ module.exports = {
                         .setTimestamp();
                     return interaction.reply({ embeds: [errorEmbed], flags: 64 });
                 }
+
+                // 元の投稿の作者にリプライ通知を送信
+                await sendNotification(db, post.author_id, userId, postId, 'reply');
 
                 const successEmbed = new EmbedBuilder()
                     .setColor(0x00ff99)

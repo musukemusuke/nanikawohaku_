@@ -34,11 +34,26 @@ module.exports = {
             .setRequired(false)
             .setMaxLength(10);
 
-        const firstRow = new ActionRowBuilder().addComponents(likeIdInput);
-        const secondRow = new ActionRowBuilder().addComponents(replyIdInput);
-        const thirdRow = new ActionRowBuilder().addComponents(postIdInput);
-
-        modal.addComponents(firstRow, secondRow, thirdRow);
+        // リポスト解除用の入力欄
+        const postIdInput = new TextInputBuilder()
+             .setCustomId('postId')
+             .setLabel('削除したい投稿のID(不要なら空欄で)')
+             .setStyle(TextInputStyle.Short)
+             .setRequired(false)
+             .setMaxLength(10);
+         const repostIdInput = new TextInputBuilder()
+             .setCustomId('repostId')
+             .setLabel('取り消したいリポストのID(不要なら空欄で)')
+             .setStyle(TextInputStyle.Short)
+             .setRequired(false)
+             .setMaxLength(10);
+ 
+         const firstRow = new ActionRowBuilder().addComponents(likeIdInput);
+         const secondRow = new ActionRowBuilder().addComponents(replyIdInput);
+         const thirdRow = new ActionRowBuilder().addComponents(postIdInput);
+         const fourthRow = new ActionRowBuilder().addComponents(repostIdInput);
+ 
+         modal.addComponents(firstRow, secondRow, thirdRow, fourthRow);
         await interaction.showModal(modal);
     },
     async handleModalSubmit(interaction) {
@@ -47,6 +62,7 @@ module.exports = {
         const likeId = interaction.fields.getTextInputValue('likeId') || null;
         const replyId = interaction.fields.getTextInputValue('replyId') || null;
         const postId = interaction.fields.getTextInputValue('postId') || null;
+        const repostId = interaction.fields.getTextInputValue('repostId') || null;
 
         const results = [];
         let hasProcessed = false;
@@ -76,6 +92,44 @@ module.exports = {
                                     results.push('❌ 投稿のいいね数更新でエラーが発生しました');
                                 } else {
                                     results.push(`ID:${likeId}のいいねを取り消しました。`);
+                                }
+                                checkAndSendResults();
+                            });
+                            return;
+                        }
+                        checkAndSendResults();
+                    });
+                    return;
+                }
+                checkAndSendResults();
+            });
+        }
+
+        // リポストの削除処理（リポスト解除）
+        if (repostId) {
+            hasProcessed = true;
+            db.get(`SELECT * FROM reposts WHERE id = ? AND user_id = ?`, [repostId, userId], (err, row) => {
+                if (err) {
+                    console.error('Error getting repost:', err);
+                    results.push('❌ リポストの取得でエラーが発生しました');
+                    checkAndSendResults();
+                    return;
+                }
+                if (!row) {
+                    results.push(`⚠️ 指定されたID ${repostId} のリポストは存在しません。`);
+                } else {
+                    // リポストを削除して、元の投稿のリポスト数を減らす
+                    db.run(`DELETE FROM reposts WHERE id = ?`, [repostId], (err) => {
+                        if (err) {
+                            console.error('Error deleting repost:', err);
+                            results.push('❌ リポストの削除でエラーが発生しました');
+                        } else {
+                            db.run(`UPDATE posts SET reposts = reposts - 1 WHERE id = ?`, [row.original_post_id], (err) => {
+                                if (err) {
+                                    console.error('Error updating post reposts:', err);
+                                    results.push('❌ 元の投稿のリポスト数更新でエラーが発生しました');
+                                } else {
+                                    results.push(`ID:${repostId}のリポストを取り消しました。`);
                                 }
                                 checkAndSendResults();
                             });

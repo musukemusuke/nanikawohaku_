@@ -61,6 +61,41 @@ const db = new sqlite3.Database('./database.sqlite', (err) => {
                 PRIMARY KEY (user_id, post_id),
                 FOREIGN KEY (post_id) REFERENCES posts(id)
             )`);
+            // フォロー機能用テーブル
+            db.run(`CREATE TABLE IF NOT EXISTS user_follows (
+                follower_id TEXT NOT NULL,
+                followed_id TEXT NOT NULL,
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                PRIMARY KEY (follower_id, followed_id)
+            )`);
+            // 通知機能用テーブル
+            db.run(`CREATE TABLE IF NOT EXISTS notifications (
+                id TEXT PRIMARY KEY,
+                user_id TEXT NOT NULL,
+                type TEXT NOT NULL, -- like, reply
+                from_user_id TEXT NOT NULL,
+                post_id TEXT NOT NULL,
+                read INTEGER NOT NULL DEFAULT 0,
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (post_id) REFERENCES posts(id)
+            )`);
+            // ハッシュタグ機能用テーブル
+            db.run(`CREATE TABLE IF NOT EXISTS post_hashtags (
+                id TEXT PRIMARY KEY,
+                post_id TEXT NOT NULL,
+                hashtag TEXT NOT NULL,
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (post_id) REFERENCES posts(id)
+            )`);
+            // リポスト機能用テーブル
+            db.run(`CREATE TABLE IF NOT EXISTS reposts (
+                id TEXT PRIMARY KEY,
+                original_post_id TEXT NOT NULL,
+                user_id TEXT NOT NULL,
+                quote_text TEXT, -- 引用文（任意）
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (original_post_id) REFERENCES posts(id)
+            )`);
             // 既存のテーブルにguild_nameカラムを追加（存在しない場合）
             db.run(`ALTER TABLE posts ADD COLUMN guild_name TEXT`, (err) => {
                 if (err && !err.message.includes('duplicate column name')) {
@@ -129,6 +164,9 @@ client.once('clientReady', () => {
     }
 });
 
+// paginationユーティリティをインポート
+const { handleLikeButton, handleReplyButton, handlePageInteraction } = require('./utils/pagination.js');
+
 client.on('interactionCreate', async interaction => {
     if (interaction.isChatInputCommand()) {
         const command = client.commands.get(interaction.commandName);
@@ -152,15 +190,21 @@ client.on('interactionCreate', async interaction => {
             const customId = interaction.customId;
             let command;
 
-            if (customId.startsWith('like_') || customId.startsWith('reply_')) {
-                command = client.commands.get('feed');
-                if (command && command.handleButton) {
-                    try {
-                        await command.handleButton(interaction);
-                    } catch (error) {
-                        console.error(error);
-                        await interaction.reply({ content: 'ボタンの処理中にエラーが発生しました！', flags: 64 });
-                    }
+            // いいねボタンの処理（共通ユーティリティを使用）
+            if (customId.startsWith('like_post_')) {
+                try {
+                    await handleLikeButton(interaction);
+                } catch (error) {
+                    console.error(error);
+                    await interaction.reply({ content: 'いいねの処理中にエラーが発生しました！', flags: 64 });
+                }
+            // リプライボタンの処理（共通ユーティリティを使用）
+            } else if (customId.startsWith('reply_post_')) {
+                try {
+                    await handleReplyButton(interaction);
+                } catch (error) {
+                    console.error(error);
+                    await interaction.reply({ content: 'リプライの処理中にエラーが発生しました！', flags: 64 });
                 }
             } else if (customId.startsWith('confirm_post_')) {
                 // 投稿確認用のはい/いいえボタンの処理
@@ -174,15 +218,12 @@ client.on('interactionCreate', async interaction => {
                     }
                 }
             } else if (customId.startsWith('prev_page_') || customId.startsWith('next_page_')) {
-                // ページング用ボタンの処理
-                command = client.commands.get('feed');
-                if (command && command.handlePageButton) {
-                    try {
-                        await command.handlePageButton(interaction);
-                    } catch (error) {
-                        console.error(error);
-                        await interaction.reply({ content: 'ページ移動の処理中にエラーが発生しました！', flags: 64 });
-                    }
+                // ページング用ボタンの処理（共通ユーティリティを使用）
+                try {
+                    await handlePageInteraction(interaction);
+                } catch (error) {
+                    console.error(error);
+                    await interaction.reply({ content: 'ページ移動の処理中にエラーが発生しました！', flags: 64 });
                 }
             }
     } else if (interaction.isModalSubmit()) {

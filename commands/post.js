@@ -1,5 +1,6 @@
 const { SlashCommandBuilder, ButtonBuilder, ButtonStyle, ActionRowBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, EmbedBuilder } = require('discord.js');
 const { nanoid } = require('nanoid');
+const { generateId } = require('../utils/pagination.js');
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -97,6 +98,10 @@ module.exports = {
             const channelId = originalInteraction.channel.id; // originalInteractionから取得
             const createdAt = new Date().toISOString();
 
+            // ハッシュタグを抽出（#に続く1文字以上の英数字・ひらがな・カタカナ・漢字にマッチ）
+            const hashtagRegex = /#([^\s#]+)/g;
+            const hashtags = [...postContent.matchAll(hashtagRegex)].map(match => match[1].toLowerCase());
+            
             // 投稿データをデータベースに保存
             const query = `INSERT INTO posts (id, author_id, author_username, guild_id, guild_name, channel_id, content, image_url, is_private, allowed_users, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
             const params = [postId, authorId, authorUsername, guildId, guildName, channelId, postContent, postUrl, isPrivate ? 1 : 0, allowedUsers, createdAt];
@@ -107,6 +112,21 @@ module.exports = {
                     await interaction.update({ content: '投稿の保存中にエラーが発生しました。', components: [] });
                     return;
                 }
+
+                // ハッシュタグをpost_hashtagsテーブルに保存
+                if (hashtags.length > 0) {
+                    const hashtagQueries = hashtags.map(tag => {
+                        const hashtagId = generateId();
+                        return new Promise((resolve, reject) => {
+                            db.run(`INSERT INTO post_hashtags (id, post_id, hashtag) VALUES (?, ?, ?)`, [hashtagId, postId, tag], (err) => {
+                                if (err) return reject(err);
+                                resolve();
+                            });
+                        });
+                    });
+                    await Promise.all(hashtagQueries).catch(err => console.error('Error saving hashtags:', err));
+                }
+
                 console.log(`Post ${postId} saved to database.`);
                 await interaction.update({ content: `投稿が完了しました！投稿ID: \`${postId}\`\n(この投稿は /feed コマンドで表示されます)`, components: [] });
                 // 投稿プロセス完了後、マップから削除
