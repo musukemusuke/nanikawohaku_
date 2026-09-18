@@ -17,7 +17,7 @@ const client = new Client({
 client.commands = new Collection();
 client.postInteractions = new Map(); // /post コマンドの初期インタラクションを追跡するためのマップ
 
-client.pageInteractions = new Map(); // /feed のページングインタラクションを追跡するためのマップ
+
 
 
 const sqlite3 = require('sqlite3').verbose();
@@ -165,7 +165,7 @@ client.once('clientReady', () => {
 });
 
 // paginationユーティリティをインポート
-const { handleLikeButton, handleReplyButton, handlePageInteraction } = require('./utils/pagination.js');
+const { createPaginatedFeed } = require('./utils/pagination.js');
 
 client.on('interactionCreate', async interaction => {
     if (interaction.isChatInputCommand()) {
@@ -190,23 +190,7 @@ client.on('interactionCreate', async interaction => {
             const customId = interaction.customId;
             let command;
 
-            // いいねボタンの処理（共通ユーティリティを使用）
-            if (customId.startsWith('like_post_')) {
-                try {
-                    await handleLikeButton(interaction);
-                } catch (error) {
-                    console.error(error);
-                    await interaction.reply({ content: 'いいねの処理中にエラーが発生しました！', flags: 64 });
-                }
-            // リプライボタンの処理（共通ユーティリティを使用）
-            } else if (customId.startsWith('reply_post_')) {
-                try {
-                    await handleReplyButton(interaction);
-                } catch (error) {
-                    console.error(error);
-                    await interaction.reply({ content: 'リプライの処理中にエラーが発生しました！', flags: 64 });
-                }
-            } else if (customId.startsWith('confirm_post_')) {
+            if (customId.startsWith('confirm_post_')) {
                 // 投稿確認用のはい/いいえボタンの処理
                 command = client.commands.get('post');
                 if (command && command.handleButton) {
@@ -216,14 +200,6 @@ client.on('interactionCreate', async interaction => {
                         console.error(error);
                         await interaction.reply({ content: 'ボタンの処理中にエラーが発生しました！', flags: 64 });
                     }
-                }
-            } else if (customId.startsWith('prev_page_') || customId.startsWith('next_page_')) {
-                // ページング用ボタンの処理（共通ユーティリティを使用）
-                try {
-                    await handlePageInteraction(interaction);
-                } catch (error) {
-                    console.error(error);
-                    await interaction.reply({ content: 'ページ移動の処理中にエラーが発生しました！', flags: 64 });
                 }
             }
     } else if (interaction.isModalSubmit()) {

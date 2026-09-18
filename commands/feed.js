@@ -1,5 +1,5 @@
 const { SlashCommandBuilder } = require('discord.js');
-const { createPaginatedFeed, handlePageInteraction } = require('../utils/pagination.js');
+const { createPaginatedFeed } = require('../utils/pagination.js');
 
 module.exports = {
     data: new SlashCommandBuilder()
