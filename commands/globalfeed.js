@@ -7,7 +7,8 @@ module.exports = {
     async execute(interaction) {
         const db = interaction.client.db;
         // 全サーバーの公開投稿を取得（guild_idの条件を除外）
-        db.all(`SELECT * FROM posts WHERE is_private = 0 ORDER BY created_at DESC LIMIT 50`, async (err, rows) => {
+        // 全サーバーの公開投稿 + 自分が閲覧許可された非公開投稿を取得
+        db.all(`SELECT * FROM posts WHERE (is_private = 0 OR (is_private = 1 AND (allowed_users LIKE ? OR author = ?))) ORDER BY created_at DESC LIMIT 50`, [`%${interaction.user.username}%`, interaction.user.username], async (err, rows) => {
             if (err) {
                 console.error('Error fetching global posts:', err.message);
                 await interaction.reply({ content: 'グローバルフィードの取得中にエラーが発生しました。', flags: 64 });

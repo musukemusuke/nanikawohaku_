@@ -26,24 +26,24 @@ module.exports = {
         let title = '';
 
         switch (type) {
-            case 'public': // 最新の公開投稿
-                query = `SELECT * FROM posts WHERE guild_id = ? AND is_private = 0 ORDER BY created_at DESC LIMIT 5`;
-                params = [guildId];
-                title = '最新の公開投稿';
+            case 'public': // 最新の公開投稿（全サーバーの公開投稿 + 自分が閲覧許可された非公開投稿 + 自分の非公開投稿）
+                query = `SELECT * FROM posts WHERE (is_private = 0 OR (is_private = 1 AND (allowed_users LIKE ? OR author = ?))) ORDER BY created_at DESC LIMIT 5`;
+                params = [`%${interaction.user.username}%`, interaction.user.username];
+                title = '最新の公開・閲覧可能な投稿';
                 break;
-            case 'my_posts': // 自分の投稿
-                query = `SELECT * FROM posts WHERE guild_id = ? AND author_id = ? ORDER BY created_at DESC LIMIT 5`;
-                params = [guildId, userId];
+            case 'my_posts': // 自分の投稿（全サーバーの自分の投稿）
+                query = `SELECT * FROM posts WHERE author_id = ? ORDER BY created_at DESC LIMIT 5`;
+                params = [userId];
                 title = 'あなたの投稿';
                 break;
-            case 'my_replies': // 自分が投稿したリプライ
-                query = `SELECT * FROM replies WHERE author_id = ? AND guild_id = ? ORDER BY created_at DESC LIMIT 5`;
-                params = [userId, guildId];
+            case 'my_replies': // 自分が投稿したリプライ（全サーバーの自分のリプライ）
+                query = `SELECT * FROM replies WHERE author_id = ? ORDER BY created_at DESC LIMIT 5`;
+                params = [userId];
                 title = 'あなたが投稿したリプライ';
                 break;
-            case 'my_likes': // 自分がいいねした投稿
-                query = `SELECT posts.* FROM posts JOIN user_likes ON posts.id = user_likes.post_id WHERE posts.guild_id = ? AND user_likes.user_id = ? ORDER BY posts.created_at DESC LIMIT 5`;
-                params = [guildId, userId];
+            case 'my_likes': // 自分がいいねした投稿（全サーバーのいいねした投稿）
+                query = `SELECT posts.* FROM posts JOIN user_likes ON posts.id = user_likes.post_id WHERE user_likes.user_id = ? ORDER BY posts.created_at DESC LIMIT 5`;
+                params = [userId];
                 title = 'あなたがいいねした投稿';
                 break;
         }
