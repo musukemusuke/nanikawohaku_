@@ -48,7 +48,7 @@ module.exports = {
             });
         });
 
-        // プロフィールの基本情報Embedを作成
+        // プロフィールの基本情報を先に作成しておく
         const profileEmbed = new EmbedBuilder()
             .setColor(0x1DA1F2)
             .setAuthor({ name: targetUser.username, iconURL: targetUser.displayAvatarURL() })
@@ -61,13 +61,13 @@ module.exports = {
             )
             .setTimestamp();
 
-        await interaction.reply({ embeds: [profileEmbed], flags: 64 });
-
-        // 投稿があれば続けてページネーションで表示
+        // 投稿がある場合はプロフィールと一緒にcreatePaginatedFeedで返信、なければ単独で返信
         if (userPosts.length > 0) {
-            setTimeout(async () => {
-                await createPaginatedFeed(interaction, userPosts, `${targetUser.username}さんの最近の投稿`, true);
-            }, 1000);
+            // createPaginatedFeed内で最初の返信を行うので、ここでは何もしない
+            await createPaginatedFeed(interaction, userPosts, `${targetUser.username}さんの最近の投稿`, true, profileEmbed);
+        } else {
+            // 投稿がない場合はプロフィールだけを返信
+            await interaction.reply({ embeds: [profileEmbed], flags: 64 });
         }
     }
 };

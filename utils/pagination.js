@@ -9,7 +9,7 @@ async function getUserLikeStatus(db, userId, postId) {
     });
 }
 
-async function createPaginatedFeed(interaction, posts, title, isPostList = true) {
+async function createPaginatedFeed(interaction, posts, title, isPostList = true, additionalEmbed = null) {
     const limit = 5;
     let currentPage = 0;
     const totalPages = Math.ceil(posts.length / limit);
@@ -32,6 +32,11 @@ async function createPaginatedFeed(interaction, posts, title, isPostList = true)
         const pageItems = posts.slice(start, end);
 
         const embeds = [];
+        // 追加のEmbed（プロフィール情報など）があれば最初に追加
+        if (additionalEmbed && page === 0) {
+            embeds.push(additionalEmbed);
+        }
+        
         const allComponents = [];
         const pageMessageId = interaction.id;
 
@@ -44,7 +49,7 @@ async function createPaginatedFeed(interaction, posts, title, isPostList = true)
             const postEmbed = new EmbedBuilder()
                 .setAuthor({ 
                     name: item.author_username, 
-                    iconURL: interaction.user.displayAvatarURL() 
+                    iconURL: interaction.client.users.cache.get(item.author_id)?.displayAvatarURL() || interaction.user.displayAvatarURL() 
                 })
                 .setDescription(item.content)
                 .setColor(0x1DA1F2) // Twitterの青色
@@ -114,14 +119,24 @@ async function createPaginatedFeed(interaction, posts, title, isPostList = true)
             });
         }
 
-        await interaction.editReply({
-            content: `${title} - ${page + 1}/${totalPages}ページ（全${posts.length}件）`,
-            embeds: embeds,
-            components: allComponents
-        });
+        // 既に返信済みかどうかでeditReplyかreplyを使い分ける
+        if (interaction.replied || interaction.deferred) {
+            await interaction.editReply({
+                content: `${title} - ${page + 1}/${totalPages}ページ（全${posts.length}件）`,
+                embeds: embeds,
+                components: allComponents
+            });
+        } else {
+            await interaction.reply({
+                content: `${title} - ${page + 1}/${totalPages}ページ（全${posts.length}件）`,
+                embeds: embeds,
+                components: allComponents,
+                flags: 64
+            });
+        }
     };
 
-    await interaction.reply({ content: '読み込み中...', flags: 64 });
+    // 最初のページを表示
     await displayPage(currentPage);
 }
 
