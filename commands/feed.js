@@ -27,7 +27,7 @@ module.exports = {
 
         switch (type) {
             case 'public': // 最新の公開投稿（全サーバーの公開投稿 + 自分が閲覧許可された非公開投稿 + 自分の非公開投稿）
-                query = `SELECT * FROM posts WHERE (is_private = 0 OR (is_private = 1 AND (allowed_users LIKE ? OR author = ?))) ORDER BY created_at DESC LIMIT 5`;
+                query = `SELECT * FROM posts WHERE (is_private = 0 OR (is_private = 1 AND (allowed_users LIKE ? OR author_username = ?))) ORDER BY created_at DESC LIMIT 5`;
                 params = [`%${interaction.user.username}%`, interaction.user.username];
                 title = '最新の公開・閲覧可能な投稿';
                 break;
