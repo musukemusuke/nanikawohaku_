@@ -52,7 +52,7 @@ module.exports = {
                 },
                 {
                     name: '👁️ /view - 各種コンテンツ閲覧',
-                    value: '指定した投稿の各種一覧を閲覧するコマンドです。\n**必須オプション**\ntype：閲覧したいコンテンツの種類\n・replies：リプライ一覧\n・likes：いいねしたユーザー一覧\n・reposts：リポストしたユーザー一覧\nid：対象の投稿ID\n\n**使い方例**\n`/view type:replies id:投稿ID`\n`/view type:likes id:投稿ID`\n`/view type:reposts id:投稿ID`'
+                    value: '指定した投稿またはユーザーの各種一覧を閲覧するコマンドです。\n**必須オプション**\ntype：閲覧したいコンテンツの種類\n・replies：リプライ一覧（投稿IDが必要）\n・likes：いいねしたユーザー一覧（投稿IDが必要）\n・reposts：リポストしたユーザー一覧（投稿IDが必要）\n・followers：フォロワー一覧（ユーザーIDが必要）\n・following：フォロー中のユーザー一覧（ユーザーIDが必要）\n・history：過去の投稿履歴（ユーザーIDが必要）\n・media：添付メディア一覧（投稿IDが必要）\nid：対象のID\n\n**使い方例**\n`/view type:replies id:投稿ID`\n`/view type:likes id:投稿ID`\n`/view type:reposts id:投稿ID`\n`/view type:followers id:ユーザーID`\n`/view type:following id:ユーザーID`\n`/view type:history id:ユーザーID`\n`/view type:media id:投稿ID`'
                 },
                 {
                     name: '📌 全操作をコマンドで完結',
