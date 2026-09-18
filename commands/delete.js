@@ -35,13 +35,7 @@ module.exports = {
             .setMaxLength(10);
 
         // リポスト解除用の入力欄
-        const postIdInput = new TextInputBuilder()
-             .setCustomId('postId')
-             .setLabel('削除したい投稿のID(不要なら空欄で)')
-             .setStyle(TextInputStyle.Short)
-             .setRequired(false)
-             .setMaxLength(10);
-         const repostIdInput = new TextInputBuilder()
+        const repostIdInput = new TextInputBuilder()
              .setCustomId('repostId')
              .setLabel('取り消したいリポストのID(不要なら空欄で)')
              .setStyle(TextInputStyle.Short)
