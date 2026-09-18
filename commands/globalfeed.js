@@ -74,13 +74,13 @@ module.exports = {
                         currentPage: page,
                         totalPages: totalPages,
                         userId: interaction.user.id,
-                        title: '全サーバーの公開投稿',
+                        title: '全サーバーの公開・閲覧可能な投稿',
                         messageId: pageMessageId
                     });
                 }
 
                 await interaction.editReply({
-                    content: `全サーバーの公開投稿 - ${page + 1}/${totalPages}ページ`,
+                    content: `全サーバーの公開・閲覧可能な投稿 - ${page + 1}/${totalPages}ページ`,
                     embeds: embeds,
                     components: allComponents
                 });
