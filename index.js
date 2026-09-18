@@ -68,6 +68,16 @@ const db = new sqlite3.Database('./database.sqlite', (err) => {
                 created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
                 PRIMARY KEY (follower_id, followed_id)
             )`);
+            // ユーザー情報管理用テーブル（ユーザー名で検索可能にする）
+            db.run(`CREATE TABLE IF NOT EXISTS users (
+                id TEXT PRIMARY KEY,
+                username TEXT NOT NULL,
+                discriminator TEXT,
+                global_name TEXT,
+                avatar_url TEXT,
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                last_updated TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+            )`);
             // 通知機能用テーブル
             db.run(`CREATE TABLE IF NOT EXISTS notifications (
                 id TEXT PRIMARY KEY,

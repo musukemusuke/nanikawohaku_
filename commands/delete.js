@@ -40,14 +40,23 @@ module.exports = {
              .setLabel('取り消したいリポストのID(不要なら空欄で)')
              .setStyle(TextInputStyle.Short)
              .setRequired(false)
-             .setMaxLength(10);
+             .setMaxLength(20);
+        
+        // フォロー解除用の入力欄
+        const followIdInput = new TextInputBuilder()
+             .setCustomId('followId')
+             .setLabel('解除したいフォローのユーザーID(不要なら空欄で)')
+             .setStyle(TextInputStyle.Short)
+             .setRequired(false)
+             .setMaxLength(20);
  
          const firstRow = new ActionRowBuilder().addComponents(likeIdInput);
          const secondRow = new ActionRowBuilder().addComponents(replyIdInput);
          const thirdRow = new ActionRowBuilder().addComponents(postIdInput);
          const fourthRow = new ActionRowBuilder().addComponents(repostIdInput);
+         const fifthRow = new ActionRowBuilder().addComponents(followIdInput);
  
-         modal.addComponents(firstRow, secondRow, thirdRow, fourthRow);
+         modal.addComponents(firstRow, secondRow, thirdRow, fourthRow, fifthRow);
         await interaction.showModal(modal);
     },
     async handleModalSubmit(interaction) {
@@ -57,6 +66,7 @@ module.exports = {
         const replyId = interaction.fields.getTextInputValue('replyId') || null;
         const postId = interaction.fields.getTextInputValue('postId') || null;
         const repostId = interaction.fields.getTextInputValue('repostId') || null;
+        const followId = interaction.fields.getTextInputValue('followId') || null;
 
         const results = [];
         let hasProcessed = false;
@@ -164,6 +174,41 @@ module.exports = {
                     return;
                 }
                 checkAndSendResults();
+            });
+        }
+
+        // フォロー解除の処理
+        if (followId) {
+            hasProcessed = true;
+            db.get(`SELECT 1 FROM user_follows WHERE follower_id = ? AND followed_id = ?`, [userId, followId], (err, row) => {
+                if (err) {
+                    console.error('Error getting follow:', err);
+                    results.push('❌ フォロー情報の取得でエラーが発生しました');
+                    checkAndSendResults();
+                    return;
+                }
+                if (!row) {
+                    results.push(`⚠️ 指定されたユーザーID ${followId} はフォローしていません。`);
+                    checkAndSendResults();
+                } else {
+                    // フォローを解除
+                    db.run(`DELETE FROM user_follows WHERE follower_id = ? AND followed_id = ?`, [userId, followId], async (err) => {
+                        if (err) {
+                            console.error('Error deleting follow:', err);
+                            results.push('❌ フォロー解除でエラーが発生しました');
+                            checkAndSendResults();
+                        } else {
+                            // 対象ユーザーの名前を取得して表示
+                            try {
+                                const targetUser = await interaction.client.users.fetch(followId);
+                                results.push(`✅ ${targetUser.username}さん(ID:${followId})のフォローを解除しました。`);
+                            } catch (fetchErr) {
+                                results.push(`✅ ID:${followId}のフォローを解除しました。`);
+                            }
+                            checkAndSendResults();
+                        }
+                    });
+                }
             });
         }
 
