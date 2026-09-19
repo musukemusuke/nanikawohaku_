@@ -1,19 +1,41 @@
 const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
 const { createPaginatedFeed } = require('../utils/pagination.js');
+const { saveUserToDB, searchUsersByUsername } = require('../utils/userUtils.js');
 
 module.exports = {
     data: new SlashCommandBuilder()
         .setName('profile')
         .setDescription('ユーザーのプロフィールを表示します')
-        .addUserOption(option =>
-            option.setName('user')
-                .setDescription('プロフィールを表示するユーザー（指定しないと自分自身）')
+        .addStringOption(option =>
+            option.setName('username')
+                .setDescription('プロフィールを表示するユーザーのユーザー名（指定しないと自分自身）')
                 .setRequired(false)),
     async execute(interaction) {
         const db = interaction.client.db;
-        const targetUser = interaction.options.getUser('user') || interaction.user;
-        const targetUserId = targetUser.id;
+        const client = interaction.client;
+        const searchUsername = interaction.options.getString('username');
+        let targetUser = interaction.user;
+        let targetUserId = interaction.user.id;
         const currentUserId = interaction.user.id;
+
+        // ユーザー名が指定されている場合は検索
+        if (searchUsername) {
+            await saveUserToDB(db, interaction.user);
+            const users = await searchUsersByUsername(db, client, searchUsername);
+            if (users.length === 0) {
+                return interaction.reply({ content: `「${searchUsername}」に一致するユーザーが見つかりませんでした。`, flags: 64 });
+            }
+            // 完全一致するユーザーを優先的に選択
+            const exactMatch = users.find(u => u.username.toLowerCase() === searchUsername.toLowerCase());
+            const targetUserDB = exactMatch || users[0];
+            targetUserId = targetUserDB.id;
+            try {
+                targetUser = await client.users.fetch(targetUserId);
+                await saveUserToDB(db, targetUser);
+            } catch (err) {
+                return interaction.reply({ content: '指定されたユーザーが存在しません。', flags: 64 });
+            }
+        }
 
         // フォロー数・フォロワー数を取得
         const followingCount = await new Promise((resolve) => {
