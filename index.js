@@ -167,8 +167,10 @@ const rest = new REST({ version: '10' }).setToken(process.env.DISCORD_TOKEN);
 })();
 
 
-client.once('clientReady', () => {
+client.once('ready', () => {
     console.log('Bot is online!');
+    // アクティビティを設定して/helpを最初に使うように表示
+    client.user.setActivity('/help で使い方を確認！', { type: 0 }); // type:0はPLAYING
     if (!process.env.CLIENT_ID) {
         console.warn('CLIENT_ID is not set in .env. Slash commands might not be registered correctly.');
     }
